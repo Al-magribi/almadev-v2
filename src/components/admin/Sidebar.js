@@ -17,12 +17,12 @@ import {
 
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
-  { name: "Courses", icon: BookOpen, href: "/admin/courses" },
-  { name: "Participants", icon: Users, href: "/admin/participants" },
-  { name: "Products", icon: Package, href: "/admin/products" },
-  { name: "Transactions", icon: CreditCard, href: "/admin/transactions" },
-  { name: "Settings", icon: Settings, href: "/admin/settings" },
-  { name: "Profile", icon: UserCircle, href: "/admin/profile" },
+  { name: "Kursus", icon: BookOpen, href: "/admin/courses" },
+  { name: "Produk Digital", icon: Package, href: "/admin/products" },
+  { name: "Peserta", icon: Users, href: "/admin/participants" },
+  { name: "Transaksi", icon: CreditCard, href: "/admin/transactions" },
+  { name: "Pengaturan", icon: Settings, href: "/admin/settings" },
+  { name: "Profil", icon: UserCircle, href: "/admin/profile" },
 ];
 
 export default function Sidebar({ isOpen, setIsOpen }) {

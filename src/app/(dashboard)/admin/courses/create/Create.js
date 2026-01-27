@@ -32,10 +32,10 @@ export default function Create() {
         </div>
         <div>
           <h1 className='text-xl font-bold text-zinc-900 dark:text-zinc-100'>
-            Courses Manager
+            Manajemen Kursus
           </h1>
           <p className='text-zinc-500 dark:text-zinc-400 text-sm'>
-            Manage your curriculum and students
+            Persiapan pembelajaran kursus
           </p>
         </div>
       </div>
@@ -58,7 +58,7 @@ export default function Create() {
         <input type='hidden' name='price' value='0' />
 
         <div className='shrink-0'>
-          <SubmitButton label='Create' icon={Plus} />
+          <SubmitButton label='Buat baru' icon={Plus} />
         </div>
       </form>
     </div>

@@ -63,6 +63,34 @@ export const createCourseSchema = z.object({
     ),
 });
 
+export const productSchema = z.object({
+  name: z.string().min(3, "Nama produk minimal 3 karakter"),
+  description: z.string().min(10, "Deskripsi minimal 10 karakter"),
+  note: z.string().optional(),
+  price: z.coerce.number().min(0, "Harga tidak boleh negatif"), // coerce mengubah string input ke number
+  category: z.string().min(1, "Kategori harus dipilih"),
+  status: z.enum(["draft", "published", "archived"]).default("draft"),
+  fileLink: z.string().optional(),
+  videoLink: z.string().optional(),
+
+  // Validasi Image: Boleh string (URL lama) atau File (Upload baru)
+  image: z
+    .any()
+    .refine((file) => {
+      // Jika string (URL gambar lama), valid
+      if (typeof file === "string") return true;
+      // Jika file kosong/undefined (saat edit tidak ganti gambar), valid jika ada mekanisme lain
+      if (!file || file.size === 0) return true;
+      // Cek size
+      return file.size <= MAX_FILE_SIZE;
+    }, "Ukuran gambar maksimal 5MB.")
+    .refine((file) => {
+      if (typeof file === "string") return true;
+      if (!file || file.size === 0) return true;
+      return ACCEPTED_IMAGE_TYPES.includes(file.type);
+    }, "Format gambar harus .jpg, .png, atau .webp."),
+});
+
 // Helper Upload Image (Sama seperti sebelumnya)
 export async function uploadImage(file, folder = "courses") {
   if (!file || file.size === 0 || file === "undefined") return null;

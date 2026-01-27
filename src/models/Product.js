@@ -27,7 +27,7 @@ const productSchema = new mongoose.Schema(
 );
 
 // --- LOGIKA PERHITUNGAN RATING OTOMATIS ---
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
   if (this.reviews && this.reviews.length > 0) {
     // Hitung total rating
     const total = this.reviews.reduce((acc, item) => item.rating + acc, 0);
@@ -42,7 +42,6 @@ productSchema.pre("save", function (next) {
     this.rating = 0;
     this.totalReviews = 0;
   }
-  next();
 });
 
 const Product =

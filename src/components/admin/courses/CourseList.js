@@ -93,7 +93,7 @@ export default function CourseList({ courses }) {
                     {course.totalReviews || 0}
                   </div>
                   <div className='text-[10px] text-zinc-500 dark:text-zinc-500 uppercase font-medium mt-0.5'>
-                    Students
+                    Perserta
                   </div>
                 </div>
                 <div className='text-center border-l border-r border-zinc-100 dark:border-zinc-800'>
@@ -111,7 +111,7 @@ export default function CourseList({ courses }) {
                     {course.curriculum?.length || 0}
                   </div>
                   <div className='text-[10px] text-zinc-500 dark:text-zinc-500 uppercase font-medium mt-0.5'>
-                    Sections
+                    Materi
                   </div>
                 </div>
               </div>
@@ -124,7 +124,7 @@ export default function CourseList({ courses }) {
                   bg-zinc-900 text-white hover:bg-zinc-800 
                   dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 shadow-sm'
                 >
-                  Manage Course
+                  Pengaturan Kursus
                 </Link>
 
                 {/* Tombol Trash */}
@@ -148,10 +148,10 @@ export default function CourseList({ courses }) {
               <Layers className='w-8 h-8 text-zinc-400 dark:text-zinc-500' />
             </div>
             <h3 className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>
-              No courses yet
+              Belum ada kursus
             </h3>
             <p className='text-zinc-500 dark:text-zinc-400 max-w-sm mt-1'>
-              Get started by creating your first course using the form above.
+              Silahkan membuat kursus baru
             </p>
           </div>
         )}
@@ -161,7 +161,7 @@ export default function CourseList({ courses }) {
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
-        title='Delete Course'
+        title='Hapus Kursus'
         description='Apakah kamu yakin akan menghapus kursus ini? Aksi ini tidak dapat dibatalkan.'
       />
     </>
