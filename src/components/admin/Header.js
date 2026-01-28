@@ -2,8 +2,9 @@
 
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { Menu, Bell } from "lucide-react";
+import Image from "next/image";
 
-export default function Header({ toggleSidebar }) {
+export default function Header({ toggleSidebar, user }) {
   return (
     <header className='h-16 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10 transition-colors duration-300'>
       <div className='flex items-center gap-4'>
@@ -30,7 +31,19 @@ export default function Header({ toggleSidebar }) {
 
         {/* Profile Avatar with Violet Gradient */}
         <button className='flex items-center gap-2'>
-          <div className='w-9 h-9 rounded-full bg-linear-to-tr from-violet-500 to-fuchsia-500 border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all' />
+          {user?.avatar ? (
+            // OPSI 1: Jika ada Avatar
+            <img
+              src={user.avatar}
+              alt={user.name || "User"}
+              className='w-9 h-9 rounded-full object-cover border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all'
+            />
+          ) : (
+            // OPSI 2: Jika tidak ada Avatar (Tampilkan Inisial)
+            <div className='w-9 h-9 rounded-full bg-linear-to-tr from-violet-500 to-fuchsia-500 border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all flex items-center justify-center text-white font-bold text-sm'>
+              {getInitial(user?.name)}
+            </div>
+          )}
         </button>
       </div>
     </header>

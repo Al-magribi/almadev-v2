@@ -158,44 +158,58 @@ export default function CourseManager({ initialData }) {
     <div className='min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20'>
       {/* Header */}
       <header className='sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800'>
-        <div className='max-w-6xl mx-auto px-6 h-16 flex items-center justify-between'>
-          <div className='flex items-center gap-4'>
+        {/* UBAH 1: Hapus h-16, ganti py-3 agar tinggi fleksibel. Tambah min-h-[4rem] untuk desktop */}
+        <div className='max-w-6xl mx-auto px-4 md:px-6 py-3 md:py-0 min-h-4rem flex flex-col md:flex-row md:items-center justify-between gap-4'>
+          {/* BAGIAN KIRI (Back + Judul) */}
+          <div className='flex items-start gap-3 md:gap-4 w-full md:w-auto'>
             <Link
               href='/admin/courses'
-              className='p-2 -ml-2 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 rounded-full transition-colors'
+              // mt-0.5 agar sejajar optik dengan text baris pertama
+              className='p-2 -ml-2 mt-0.5 text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 rounded-full transition-colors shrink-0'
             >
               <ChevronLeft size={20} />
             </Link>
 
-            <div className='flex flex-col'>
-              <h1 className='text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-tight'>
+            <div className='flex flex-col gap-2'>
+              {/* UBAH 2: text-base di mobile agar tidak terlalu besar, md:text-lg di desktop */}
+              <h1 className='text-base md:text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug wrap-break-words'>
                 {courseData.name}
               </h1>
-              <div className='flex items-center gap-2 mt-0.5'>
+
+              <div className='flex flex-wrap items-center gap-2'>
                 <span
-                  className={`flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${courseData.isActive ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-amber-100 text-amber-700 border-amber-200"}`}
+                  className={`flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${
+                    courseData.isActive
+                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      : "bg-amber-100 text-amber-700 border-amber-200"
+                  }`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${courseData.isActive ? "bg-emerald-500" : "bg-amber-500"}`}
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      courseData.isActive ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
                   />
                   {courseData.isActive ? "Terbit" : "Draf"}
                 </span>
-                {/* INDIKATOR PERUBAHAN */}
+
                 {isDirty && (
-                  <span className='cursor-pointer flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 ml-2 animate-pulse'>
+                  <span className='flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 animate-pulse'>
                     <AlertCircle size={10} />
-                    Belum Disimpan
+                    <span className='whitespace-nowrap'>Belum Disimpan</span>
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className='flex items-center gap-3'>
+          {/* BAGIAN KANAN (Tombol Simpan) */}
+          {/* UBAH 3: w-full di mobile agar tombol memanjang, md:w-auto di desktop */}
+          <div className='flex items-center gap-3 w-full md:w-auto'>
             <button
               onClick={handleSave}
-              disabled={isSaving || !isDirty} // Disable jika tidak ada perubahan
-              className={`cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+              disabled={isSaving || !isDirty}
+              // UBAH 4: justify-center agar icon & teks di tengah saat mode mobile (full width)
+              className={`w-full md:w-auto justify-center cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg shadow-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
                 isDirty
                   ? "bg-violet-600 text-white hover:bg-violet-700 shadow-violet-200"
                   : "bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-600"
@@ -211,9 +225,9 @@ export default function CourseManager({ initialData }) {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className='max-w-6xl mx-auto px-6'>
-          <nav className='flex space-x-1 overflow-x-auto no-scrollbar pt-2'>
+        {/* Navigation Tabs (Tidak perlu banyak ubahan, hanya padding container) */}
+        <div className='max-w-6xl mx-auto px-4 md:px-6'>
+          <nav className='flex space-x-1 overflow-x-auto no-scrollbar pt-1 md:pt-2'>
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -221,7 +235,11 @@ export default function CourseManager({ initialData }) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`group relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-t-lg ${isActive ? "text-violet-700 bg-violet-50/50 dark:text-violet-400 dark:bg-violet-500/10" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"}`}
+                  className={`group relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all rounded-t-lg whitespace-nowrap ${
+                    isActive
+                      ? "text-violet-700 bg-violet-50/50 dark:text-violet-400 dark:bg-violet-500/10"
+                      : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50"
+                  }`}
                 >
                   <Icon
                     size={16}

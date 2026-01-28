@@ -77,7 +77,7 @@ const viewDataSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for efficient querying
@@ -86,6 +86,7 @@ viewDataSchema.index({ itemId: 1, itemType: 1, createdAt: -1 });
 viewDataSchema.index({ utmSource: 1, createdAt: -1 });
 viewDataSchema.index({ createdAt: -1 });
 
-const ViewData = mongoose.model("ViewData", viewDataSchema);
+const ViewData =
+  mongoose.models.ViewData || mongoose.model("ViewData", viewDataSchema);
 
 export default ViewData;

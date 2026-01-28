@@ -91,6 +91,35 @@ export const productSchema = z.object({
     }, "Format gambar harus .jpg, .png, atau .webp."),
 });
 
+export const profileSchema = z.object({
+  name: z.string().min(3, "Nama lengkap minimal 3 karakter"),
+  email: z.string().email("Format email tidak valid"),
+  phone: z
+    .string()
+    .min(10, "Nomor HP terlalu pendek")
+    .regex(
+      /^(\+62|62|0)8[1-9][0-9]{6,11}$/,
+      "Format Nomor HP tidak valid (contoh: 0812...)",
+    ),
+
+  // Field Admin Optional
+  company: z.string().optional().nullable(),
+  title: z.string().optional().nullable(),
+  bio: z.string().max(500, "Bio maksimal 500 karakter").optional().nullable(),
+
+  // Avatar Validation
+  avatar: z
+    .any()
+    .refine((file) => {
+      if (typeof file === "string" || !file || file.size === 0) return true;
+      return file.size <= MAX_FILE_SIZE;
+    }, "Ukuran gambar maksimal 5MB.")
+    .refine((file) => {
+      if (typeof file === "string" || !file || file.size === 0) return true;
+      return ACCEPTED_IMAGE_TYPES.includes(file.type);
+    }, "Format gambar harus .jpg, .png, atau .webp."),
+});
+
 // Helper Upload Image (Sama seperti sebelumnya)
 export async function uploadImage(file, folder = "courses") {
   if (!file || file.size === 0 || file === "undefined") return null;
@@ -111,5 +140,29 @@ export async function uploadImage(file, folder = "courses") {
   } catch (error) {
     console.error("Upload Error:", error);
     return null;
+  }
+}
+
+export async function deleteFile(fileUrl) {
+  // 1. Cek validitas URL
+  if (!fileUrl || typeof fileUrl !== "string") return;
+
+  // 2. Pastikan hanya menghapus file lokal di folder /uploads
+  // Ini mencegah error jika image adalah link eksternal (misal placeholder)
+  if (!fileUrl.startsWith("/uploads")) return;
+
+  try {
+    // 3. Gabungkan path project dengan path file
+    // process.cwd() + public + /uploads/folder/file.jpg
+    const filePath = path.join(process.cwd(), "public", fileUrl);
+
+    // 4. Hapus file
+    await fs.unlink(filePath);
+    console.log(`File deleted: ${filePath}`);
+  } catch (error) {
+    // Jika file tidak ditemukan (ENOENT), abaikan saja agar tidak crash
+    if (error.code !== "ENOENT") {
+      console.error("Gagal menghapus file fisik:", error);
+    }
   }
 }

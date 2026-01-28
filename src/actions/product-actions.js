@@ -2,7 +2,7 @@
 "use server";
 
 import dbConnect from "@/lib/db";
-import { productSchema, uploadImage } from "@/lib/server-utils";
+import { deleteFile, productSchema, uploadImage } from "@/lib/server-utils";
 import Product from "@/models/Product";
 import { revalidatePath } from "next/cache";
 
@@ -98,10 +98,26 @@ export async function saveProduct(prevState, formData) {
 export async function deleteProduct(id) {
   try {
     await dbConnect();
+
+    // 1. Cari produk dulu untuk ambil path gambarnya
+    const product = await Product.findById(id);
+
+    if (!product) {
+      return { success: false, message: "Produk tidak ditemukan" };
+    }
+
+    // 2. Hapus file gambar fisik jika ada
+    if (product.image) {
+      await deleteFile(product.image);
+    }
+
+    // 3. Hapus data dari database
     await Product.findByIdAndDelete(id);
+
     revalidatePath("/admin/product");
     return { success: true, message: "Produk berhasil dihapus" };
   } catch (error) {
+    console.error("Delete Error:", error);
     return { success: false, message: "Gagal menghapus produk" };
   }
 }

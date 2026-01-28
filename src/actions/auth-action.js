@@ -7,6 +7,7 @@ import { cookies, headers } from "next/headers";
 import { SignJWT } from "jose";
 import dbConnect from "@/lib/db";
 import { sendActivationEmail } from "@/lib/emailService";
+import { redirect } from "next/navigation";
 
 export async function signupUser(prevState, formData) {
   try {
@@ -133,7 +134,7 @@ export async function signinUser(prevState, formData) {
 
     // Buat Session Token (JWT)
     const tokenData = {
-      userId: user._id,
+      userId: user._id.toString(),
       email: user.email,
       role: user.role,
     };
@@ -169,4 +170,13 @@ export async function signinUser(prevState, formData) {
     console.log(error);
     return { code: 500, message: error.message };
   }
+}
+
+export async function logoutUser() {
+  // 1. Hapus Cookie
+  const cookieStore = await cookies();
+  cookieStore.delete("token");
+
+  // 2. Redirect ke halaman login (atau home)
+  redirect("/");
 }

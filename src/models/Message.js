@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const messageSchema = new mongoose.Schema(
   {
-    // Sender information
     senderId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -10,74 +9,32 @@ const messageSchema = new mongoose.Schema(
     },
     senderType: {
       type: String,
-      enum: ["participant", "instructor"],
+      enum: ["participant", "instructor", "admin"],
       required: true,
     },
-
-    // Receiver information
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-    },
-    receiverType: {
-      type: String,
-      enum: ["participant", "instructor"],
-      required: true,
-    },
+    }, // Bisa null jika broadcast
 
-    // Message content
-    subject: {
-      type: String,
-      required: true,
-    },
-    message: {
-      type: String,
-      required: true,
-    },
+    subject: { type: String }, // Optional untuk reply
+    message: { type: String, required: true }, // Isi HTML dari Tiptap
 
-    // Conversation tracking
     conversationId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Conversation",
       required: true,
     },
-    parentMessageId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-    },
 
-    // Status tracking
-    status: {
-      type: String,
-      enum: ["dikirim", "diterima", "dibaca"],
-      default: "dikirim",
-    },
-    readAt: {
-      type: Date,
-    },
+    isRead: { type: Boolean, default: false },
 
-    // Timestamps
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
-    },
+    // TAMBAHAN: Array user ID yang me-like pesan ini
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
-
-// Index for efficient querying
-messageSchema.index({ conversationId: 1, createdAt: -1 });
-messageSchema.index({ senderId: 1, receiverId: 1 });
-messageSchema.index({ status: 1 });
 
 const Message =
   mongoose.models.Message || mongoose.model("Message", messageSchema);
-
 export default Message;

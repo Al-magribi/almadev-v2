@@ -1,6 +1,6 @@
 // File: app/admin/courses/page.js
 import { getCourses } from "@/actions/course-actions";
-import Create from "./create/Create";
+import Create from "../../../../components/admin/courses/Create";
 import CourseList from "@/components/admin/courses/CourseList";
 
 export const dynamic = "force-dynamic"; // Memastikan data selalu update saat di-refresh

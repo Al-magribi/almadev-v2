@@ -6,7 +6,11 @@ import Course from "@/models/Course";
 import Landing from "@/models/Landing";
 import Qna from "@/models/Qna";
 import { revalidatePath } from "next/cache";
-import { createCourseSchema, uploadImage } from "@/lib/server-utils";
+import {
+  createCourseSchema,
+  deleteFile,
+  uploadImage,
+} from "@/lib/server-utils";
 
 // 1. LIST COURSES
 export async function getCourses() {
@@ -231,11 +235,34 @@ export async function updateCourse(courseId, formData) {
 export async function deleteCourse(courseId) {
   try {
     await dbConnect();
+
+    // 1. Cari Course dulu untuk ambil path gambarnya
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return { success: false, message: "Course tidak ditemukan" };
+    }
+
+    // 2. Hapus file gambar thumbnail Course
+    if (course.image) {
+      await deleteFile(course.image);
+    }
+
+    // (Opsional) Jika Anda ingin menghapus gambar-gambar di Gallery Landing page juga:
+    // Anda perlu mencari document Landing, meloop array gallery, dan memanggil deleteFile satu per satu.
+    // Untuk saat ini, kita fokus ke thumbnail utama course agar aman.
+
+    // 3. Hapus data dari Database
     await Course.findByIdAndDelete(courseId);
     await Landing.findOneAndDelete({ courseId });
+
+    // Hapus juga QnA terkait jika perlu (Good Practice untuk kebersihan DB)
+    await Qna.deleteMany({ courseId });
+
     revalidatePath("/admin/courses");
     return { success: true };
   } catch (error) {
+    console.error("Delete Course Error:", error);
     return { success: false, message: "Gagal menghapus data" };
   }
 }

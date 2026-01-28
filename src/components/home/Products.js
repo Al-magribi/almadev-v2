@@ -26,7 +26,7 @@ export default function Products() {
         {/* Hiasan background abstrak */}
         <div className='absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-200 rounded-full blur-3xl opacity-30'></div>
 
-        <div className='flex justify-between items-end mb-8 relative z-10'>
+        <div className='flex justify-between items-end mb-8 border-b border-gray-100 pb-8 relative z-10'>
           <div>
             <h2 className='text-2xl font-bold text-slate-900'>
               Produk Digital
