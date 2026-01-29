@@ -3,10 +3,16 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function CourseCard({ title, price, image, slug, category }) {
+  const searchParams = new URLSearchParams({
+    utm_source: "website",
+    utm_medium: "card_click",
+    utm_campaign: "course_browse",
+  });
+
   return (
     <Link
-      href={`/courses/${slug}`}
-      className='group bg-white overfolw-hidden rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300'
+      href={`/courses/${slug}?${searchParams.toString()}`}
+      className='group cursor-pointer bg-white overfolw-hidden rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300'
     >
       {/* Placeholder Gambar */}
       <div className='relative h-40 w-full bg-gray-200 rounded-t-2xl overflow-hidden'>

@@ -21,7 +21,7 @@ export default function TabSettings({
   };
 
   return (
-    <div className='max-w-4xl mx-auto space-y-10'>
+    <div className='max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700'>
       {/* INFORMASI DASAR */}
       <section className='space-y-5'>
         <div className='flex items-center gap-2 pb-2 border-b border-zinc-200 dark:border-zinc-800'>

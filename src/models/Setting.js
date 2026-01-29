@@ -27,6 +27,13 @@ const settingSchema = new mongoose.Schema(
     smtpFromEmail: { type: String, default: "no-reply@domain.com" },
     smtpFromName: { type: String, default: "Admin Course" },
 
+    // --- PAYMENT GATEWAY (MIDTRANS) ---
+    midtransServerKey: { type: String, default: "" },
+    midtransClientKey: { type: String, default: "" },
+    midtransMerchantId: { type: String, default: "" },
+    midtransBaseUrl: { type: String, default: "" },
+    midtransIsProduction: { type: Boolean, default: false },
+
     // --- SYSTEM ---
     maintenanceMode: { type: Boolean, default: false },
   },

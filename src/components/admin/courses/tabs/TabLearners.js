@@ -20,7 +20,7 @@ export default function TabLearners({ objectives, setCourse }) {
   };
 
   return (
-    <div className='max-w-3xl mx-auto space-y-8'>
+    <div className='max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700'>
       <div className='text-center'>
         <h2 className='text-2xl font-bold text-zinc-900 dark:text-zinc-100'>
           Target Peserta

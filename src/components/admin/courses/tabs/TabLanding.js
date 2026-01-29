@@ -242,7 +242,7 @@ export default function TabLanding({
   };
 
   return (
-    <div className='max-w-4xl mx-auto space-y-8'>
+    <div className='space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700'>
       <div className='flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800'>
         <h2 className='text-2xl font-bold text-zinc-900 dark:text-zinc-100'>
           Editor Landing Page

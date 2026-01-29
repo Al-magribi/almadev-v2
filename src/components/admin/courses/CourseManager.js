@@ -10,6 +10,7 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +22,7 @@ import TabCurriculum from "./tabs/TabCurriculum";
 import TabLanding from "./tabs/TabLanding";
 import TabSettings from "./tabs/TabSettings";
 import TabLearners from "./tabs/TabLearners";
+import TabAnalytic from "./tabs/TabAnalytic";
 
 export default function CourseManager({ initialData }) {
   const router = useRouter();
@@ -84,6 +86,7 @@ export default function CourseManager({ initialData }) {
     { id: "landing", label: "Landing Page", icon: Globe },
     { id: "learners", label: "Target Peserta", icon: Users },
     { id: "settings", label: "Pengaturan", icon: Settings },
+    { id: "analytic", label: "Analisis", icon: ChartNoAxesCombined },
   ];
 
   const handleSave = async () => {
@@ -157,7 +160,7 @@ export default function CourseManager({ initialData }) {
   return (
     <div className='min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20'>
       {/* Header */}
-      <header className='sticky top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800'>
+      <header className='py-3 rounded-2xl top-0 z-40 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800'>
         {/* UBAH 1: Hapus h-16, ganti py-3 agar tinggi fleksibel. Tambah min-h-[4rem] untuk desktop */}
         <div className='max-w-6xl mx-auto px-4 md:px-6 py-3 md:py-0 min-h-4rem flex flex-col md:flex-row md:items-center justify-between gap-4'>
           {/* BAGIAN KIRI (Back + Judul) */}
@@ -287,6 +290,8 @@ export default function CourseManager({ initialData }) {
             setNewImageFile={setNewImageFile}
           />
         )}
+
+        {activeTab === "analytic" && <TabAnalytic courseId={courseData._id} />}
       </main>
     </div>
   );

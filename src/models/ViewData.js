@@ -15,12 +15,6 @@ const viewDataSchema = new mongoose.Schema(
       required: true,
     },
 
-    itemType: {
-      type: String,
-      enum: ["course", "product"],
-      required: true,
-    },
-
     // UTM tracking parameters
     utmSource: {
       type: String,
@@ -50,13 +44,6 @@ const viewDataSchema = new mongoose.Schema(
 
     userAgent: {
       type: String,
-    },
-
-    browserInfo: {
-      browser: { type: String, default: "Unknown" },
-      version: { type: String, default: "Unknown" },
-      os: { type: String, default: "Unknown" },
-      device: { type: String, default: "Unknown" },
     },
 
     referrer: {

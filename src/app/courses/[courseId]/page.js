@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import CurriculumList from "@/components/marketing/CurriculumList";
 import Footer from "@/components/shared/Footer";
+import { trackPageView } from "@/actions/dataview-actions";
 
 // --- METADATA ---
 export async function generateMetadata({ params }) {
@@ -32,13 +33,27 @@ export async function generateMetadata({ params }) {
 }
 
 // --- KOMPONEN UTAMA (SERVER COMPONENT) ---
-export default async function CourseLandingPage({ params }) {
+export default async function CourseLandingPage({ params, searchParams }) {
   const { courseId } = await params;
+  const sParams = await searchParams;
   const data = await getCourseDetail(courseId);
 
   if (!data || !data.course) return notFound();
 
   const { course, landing } = data;
+
+  if (data && data.course) {
+    const headerList = await headers();
+    trackPageView({
+      landingId: data.landing?._id,
+      itemId: data.course._id,
+      utmSource: sParams.utm_source,
+      utmMedium: sParams.utm_medium,
+      utmCampaign: sParams.utm_campaign,
+      pageUrl: `/courses/${courseId}`,
+      userAgent: headerList.get("user-agent"),
+    });
+  }
 
   // --- 1. DATA PREPARATION & SANITIZATION ---
 

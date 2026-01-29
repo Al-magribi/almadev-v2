@@ -148,7 +148,10 @@ export default function TabCurriculum({ course, setCourse }) {
   };
 
   return (
-    <div className='space-y-8'>
+    <div
+      key='tab-curriculum' // TAMBAHKAN KEY
+      className='space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700'
+    >
       <div className='flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-6'>
         <div>
           <h2 className='text-2xl font-bold text-zinc-900 dark:text-zinc-100'>

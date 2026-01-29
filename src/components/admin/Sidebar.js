@@ -49,19 +49,19 @@ export default function Sidebar({ isOpen, setIsOpen }) {
       {/* Sidebar Container */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-30 w-64 
-          bg-white dark:bg-zinc-900 
-          border-r border-zinc-200 dark:border-zinc-800 
-          transform transition-transform duration-300 ease-in-out
-          shadow-2xl md:shadow-none flex flex-col
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0 md:static md:inset-auto
-        `}
+    fixed inset-y-0 left-0 z-50 w-64 
+    bg-white dark:bg-zinc-900 
+    border-r border-zinc-200 dark:border-zinc-800 
+    transform transition-transform duration-300 ease-in-out
+    shadow-2xl md:shadow-none flex flex-col h-screen
+    ${isOpen ? "translate-x-0" : "-translate-x-full"}
+    md:translate-x-0 md:static
+  `}
       >
         <div className='flex items-center justify-between h-16 px-6 border-b border-zinc-200 dark:border-zinc-800 shrink-0'>
-          <div className='flex items-center gap-2 text-violet-600 dark:text-violet-400'>
-            <GraduationCap size={24} />
-            <span className='text-xl font-bold tracking-tight'>LMS Admin</span>
+          <div className='flex items-center justify-center gap-2 text-violet-600 dark:text-violet-400'>
+            <img src={"/logo.svg"} alt='logo_almadev' height={35} width={35} />
+            <span className=' font-mono font-bold text-xl'>ALMADEV</span>
           </div>
 
           <button
