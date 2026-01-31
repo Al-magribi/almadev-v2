@@ -11,6 +11,7 @@ import {
   deleteFile,
   uploadImage,
 } from "@/lib/server-utils";
+import Transaction from "@/models/Transaction";
 
 // 1. LIST COURSES
 export async function getCourses() {
@@ -202,8 +203,6 @@ export async function updateCourse(courseId, formData) {
           "hero.headline": landingData.hero?.headline,
           "hero.customSubtitle": landingData.hero?.customSubtitle,
 
-          "features.items": landingData.features?.items,
-
           "pricing.items": landingData.pricing?.items,
 
           "testimonials.items": landingData.testimonials?.items,
@@ -306,5 +305,50 @@ export async function getCourseDetail(courseId) {
   } catch (error) {
     console.error("Get Detail Error:", error);
     return null;
+  }
+}
+
+// ✅ MY COURSES: LIST KURSUS YANG SUDAH DIBELI USER
+export async function getPurchasedCoursesByUser(userId) {
+  await dbConnect();
+  if (!userId) return [];
+
+  try {
+    const txs = await Transaction.find({
+      userId, // boleh string atau ObjectId, mongoose akan cast
+      status: "completed",
+      itemType: "Course",
+    })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "item", // ✅ ini yang benar: virtual "item"
+        select:
+          "name image description rating totalReviews type isActive price", // optional
+      })
+      .lean({ virtuals: true });
+
+    const plain = JSON.parse(JSON.stringify(txs));
+
+    return plain
+      .filter((t) => t.item) // ✅ sekarang terisi
+      .map((t) => ({
+        transactionCode: t.transactionCode,
+        purchasedAt: t.createdAt,
+        price: t.price,
+        status: t.status,
+        course: {
+          _id: t.item._id,
+          name: t.item.name,
+          image: t.item.image,
+          description: t.item.description,
+          rating: t.item.rating,
+          totalReviews: t.item.totalReviews,
+          type: t.item.type,
+          isActive: t.item.isActive,
+        },
+      }));
+  } catch (e) {
+    console.error("getPurchasedCoursesByUser error:", e);
+    return [];
   }
 }

@@ -6,6 +6,7 @@ const settingSchema = new mongoose.Schema(
     websiteName: { type: String, default: "My Course App" },
     websiteLogo: { type: String, default: "" }, // URL Logo
     websiteFavicon: { type: String, default: "" }, // URL Favicon
+    domain: { type: String, default: "domain.com" },
 
     // --- SEO & META ---
     seoTitle: { type: String, default: "Platform Belajar Online Terbaik" },

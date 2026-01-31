@@ -3,6 +3,8 @@ import Link from "next/link";
 import Image from "next/image"; // IMPORT PENTING: Untuk optimasi gambar LCP
 import { notFound } from "next/navigation";
 import { formatRupiah } from "@/lib/client-utils";
+import { headers } from "next/headers";
+
 // Import Component Client yang baru dibuat
 import ProjectShowcase from "@/components/marketing/ProjectShowcase";
 
@@ -17,8 +19,9 @@ import {
   Quote,
 } from "lucide-react";
 import CurriculumList from "@/components/marketing/CurriculumList";
-import Footer from "@/components/shared/Footer";
 import { trackPageView } from "@/actions/dataview-actions";
+import { getCurrentUser } from "@/lib/auth-service";
+import PricingCardWrapper from "@/components/marketing/checkout/PricingCardWrapper";
 
 // --- METADATA ---
 export async function generateMetadata({ params }) {
@@ -36,7 +39,11 @@ export async function generateMetadata({ params }) {
 export default async function CourseLandingPage({ params, searchParams }) {
   const { courseId } = await params;
   const sParams = await searchParams;
-  const data = await getCourseDetail(courseId);
+
+  const dataCourse = await getCourseDetail(courseId);
+  const data = JSON.parse(JSON.stringify(dataCourse));
+
+  const user = await getCurrentUser();
 
   if (!data || !data.course) return notFound();
 
@@ -56,6 +63,13 @@ export default async function CourseLandingPage({ params, searchParams }) {
   }
 
   // --- 1. DATA PREPARATION & SANITIZATION ---
+  const utmData = {
+    utm_source: sParams.utm_source || null,
+    utm_medium: sParams.utm_medium || null,
+    utm_campaign: sParams.utm_campaign || null,
+    utm_term: sParams.utm_term || null,
+    utm_content: sParams.utm_content || null,
+  };
 
   const heroData = {
     headline: landing?.hero?.headline || course.name,
@@ -395,16 +409,18 @@ export default async function CourseLandingPage({ params, searchParams }) {
                     ))}
                   </ul>
 
-                  <Link
-                    href={`/checkout/${course._id}?plan=${idx}`}
-                    className={`block w-full py-4 text-center rounded-xl font-bold transition-transform active:scale-95 ${
-                      plan.isRecommended
-                        ? "bg-white text-violet-700 hover:bg-slate-100"
-                        : "bg-slate-700 text-white hover:bg-slate-600"
-                    }`}
-                  >
-                    Pilih {plan.name}
-                  </Link>
+                  <PricingCardWrapper
+                    plan={plan}
+                    courseId={course._id}
+                    planIndex={idx}
+                    user={user}
+                    courseData={{
+                      name: course.name,
+                      price: plan.price,
+                      image: course.image,
+                    }}
+                    utmData={utmData}
+                  />
                 </div>
               ))}
           </div>
@@ -440,8 +456,6 @@ export default async function CourseLandingPage({ params, searchParams }) {
           </div>
         </section>
       )}
-
-      <Footer />
 
       {/* Sticky Mobile CTA */}
       <div className='fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 md:hidden z-50 flex items-center justify-between shadow-[0_-5px_20px_rgba(0,0,0,0.05)]'>

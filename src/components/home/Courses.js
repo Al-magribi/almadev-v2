@@ -8,7 +8,7 @@ export default function Courses({ data = [] }) {
       <div className='bg-gradient-to- from-blue-50 to-white border border-blue-100 py-12 px-6 rounded-3xl relative overflow-hidden'>
         <div className='absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-blue-200 rounded-full blur-3xl opacity-30'></div>
 
-        <div className='flex justify-between items-end mb-8 border-b border-gray-100 pb-4'>
+        <div className='relative z-50 flex justify-between items-end mb-8 border-b border-gray-100 pb-4'>
           <div>
             <h2 className='text-2xl font-bold text-slate-900'>
               Kursus Terbaru
@@ -17,11 +17,12 @@ export default function Courses({ data = [] }) {
               Materi video pembelajaran terstruktur
             </p>
           </div>
+
           <Link
             href='/courses'
-            className='text-blue-600 font-semibold hover:text-blue-700 text-sm flex items-center gap-1'
+            className='relative z-100 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-1'
           >
-            Lihat Semua <span>&rarr;</span>
+            Lihat Semua &rarr;
           </Link>
         </div>
 

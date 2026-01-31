@@ -28,6 +28,7 @@ export default function CourseManager({ initialData }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("curriculum");
   const [isSaving, setIsSaving] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   // State untuk mendeteksi perubahan
   const [isDirty, setIsDirty] = useState(false);
@@ -80,6 +81,10 @@ export default function CourseManager({ initialData }) {
     // Reset file gambar jika ada
     setNewImageFile(null);
   }, [initialData]);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const tabs = [
     { id: "curriculum", label: "Kurikulum", icon: BookOpen },
@@ -156,6 +161,8 @@ export default function CourseManager({ initialData }) {
       setIsSaving(false);
     }
   };
+
+  if (!isClient) return null;
 
   return (
     <div className='min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20'>

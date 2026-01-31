@@ -12,6 +12,15 @@ export default function TabGeneral({ formData, handleChange }) {
           onChange={handleChange}
           placeholder='Contoh: My Academy'
         />
+
+        <InputGroup
+          label='Domain'
+          name='domain'
+          value={formData.domain}
+          onChange={handleChange}
+          placeholder='domain.com'
+        />
+
         <InputGroup
           label='URL Logo'
           name='websiteLogo'

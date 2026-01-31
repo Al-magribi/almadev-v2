@@ -3,30 +3,48 @@
 import Transaction from "@/models/Transaction";
 import Course from "@/models/Course";
 import Product from "@/models/Product";
-import User from "@/models/User"; // Penting untuk populate
+import User from "@/models/User";
+import Setting from "@/models/Setting";
 import dbConnect from "@/lib/db";
-import { revalidatePath } from "next/cache";
+import { customAlphabet } from "nanoid";
+import { sendPaymentEmail } from "@/lib/emailService";
 
-// Helper untuk serialize data MongoDB ke Plain Object
+const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
+
 const serializeData = (data) => JSON.parse(JSON.stringify(data));
 
-// 1. GET ALL TRANSACTIONS
+const getMidtransApiBaseUrl = (settings) => {
+  const rawBase = (settings?.midtransBaseUrl || "").trim();
+  if (rawBase.includes("app.sandbox.midtrans.com")) {
+    return "https://api.sandbox.midtrans.com";
+  }
+  if (rawBase.includes("app.midtrans.com")) {
+    return "https://api.midtrans.com";
+  }
+  if (
+    rawBase.includes("api.sandbox.midtrans.com") ||
+    rawBase.includes("api.midtrans.com")
+  ) {
+    return rawBase;
+  }
+
+  return settings?.midtransIsProduction
+    ? "https://api.midtrans.com"
+    : "https://api.sandbox.midtrans.com";
+};
+
 export async function getAllTransactions() {
   await dbConnect();
 
   try {
     const transactions = await Transaction.find()
-      .populate({
-        path: "userId",
-        select: "name email avatar", // Ambil data user yg perlu saja
-      })
-      // Populate dinamis berdasarkan itemType (Course/Product) via Virtual 'item'
+      .populate({ path: "userId", select: "name email avatar" })
       .populate({
         path: "item",
-        select: "name title image price category type", // Field yg umum di Product/Course
+        select: "name title image price category type",
       })
       .sort({ createdAt: -1 })
-      .lean(); // Konversi ke plain object agar ringan
+      .lean();
 
     return { success: true, data: serializeData(transactions) };
   } catch (error) {
@@ -35,23 +53,19 @@ export async function getAllTransactions() {
   }
 }
 
-// 2. GET TRANSACTION ANALYTICS
 export async function getTransactionAnalytics() {
   await dbConnect();
 
   try {
-    // A. Total Revenue (Hanya yang Completed)
     const revenueStats = await Transaction.aggregate([
       { $match: { status: "completed" } },
       { $group: { _id: null, totalRevenue: { $sum: "$price" } } },
     ]);
 
-    // B. Status Distribution
     const statusStats = await Transaction.aggregate([
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
-    // C. UTM Source Analysis (Top Marketing Channels)
     const utmStats = await Transaction.aggregate([
       {
         $group: {
@@ -63,10 +77,9 @@ export async function getTransactionAnalytics() {
         },
       },
       { $sort: { count: -1 } },
-      { $limit: 5 }, // Ambil top 5 source
+      { $limit: 5 },
     ]);
 
-    // D. Item Type Distribution (Course vs Product)
     const typeStats = await Transaction.aggregate([
       { $match: { status: "completed" } },
       {
@@ -89,6 +102,344 @@ export async function getTransactionAnalytics() {
     };
   } catch (error) {
     console.error("Error analyzing transactions:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ==============================================
+// SYNC PAYMENT STATUS (Manual fallback)
+// ==============================================
+export async function syncTransactionStatus(orderId) {
+  await dbConnect();
+
+  try {
+    if (!orderId) {
+      throw new Error("orderId wajib diisi.");
+    }
+
+    const settings = await Setting.findOne().lean();
+    if (!settings?.midtransServerKey) {
+      throw new Error("Payment Gateway belum dikonfigurasi.");
+    }
+
+    const trx = await Transaction.findOne({ transactionCode: orderId });
+    if (!trx) {
+      return { success: false, error: "Transaksi tidak ditemukan." };
+    }
+
+    const apiBaseUrl = getMidtransApiBaseUrl(settings);
+    const authString = Buffer.from(`${settings.midtransServerKey}:`).toString(
+      "base64",
+    );
+
+    const statusRes = await fetch(`${apiBaseUrl}/v2/${orderId}/status`, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Basic ${authString}`,
+      },
+    });
+
+    const statusData = await statusRes.json();
+    if (!statusRes.ok) {
+      throw new Error(
+        statusData?.status_message || "Gagal mengambil status Midtrans.",
+      );
+    }
+
+    const trxStatus = statusData.transaction_status;
+
+    let normalizedStatus = trx.status;
+    if (trxStatus === "settlement" || trxStatus === "capture") {
+      normalizedStatus = "completed";
+    } else if (trxStatus === "pending") {
+      normalizedStatus = "pending";
+    } else if (["deny", "cancel", "expire"].includes(trxStatus)) {
+      normalizedStatus =
+        trxStatus === "deny"
+          ? "failed"
+          : trxStatus === "expire"
+            ? "expired"
+            : "cancelled";
+    } else if (trxStatus === "refund") {
+      normalizedStatus = "refunded";
+    }
+
+    const midtransUpdate = {
+      midtransOrderId: statusData.order_id || orderId,
+      midtransStatusCode: String(statusData.status_code || ""),
+      midtransTransactionStatus: trxStatus,
+      paymentMethod: statusData.payment_type || trx.paymentMethod || "unknown",
+      fraudStatus: statusData.fraud_status || trx.fraudStatus || null,
+      midtransPayload: statusData,
+    };
+
+    await Transaction.updateOne(
+      { _id: trx._id },
+      {
+        $set: {
+          status: normalizedStatus,
+          ...midtransUpdate,
+        },
+      },
+    );
+
+    if (normalizedStatus === "completed" && trx.status !== "completed") {
+      await User.updateOne(
+        { _id: trx.userId },
+        { $set: { isActive: true, isVerified: true } },
+      );
+
+      const user = await User.findById(trx.userId)
+        .select("name fullName email")
+        .lean();
+      const customerName = user?.name || user?.fullName || "Pelanggan";
+      const customerEmail = user?.email;
+      const itemName = trx.itemName || "Pesanan Anda";
+
+      if (customerEmail) {
+        await sendPaymentEmail({
+          to: customerEmail,
+          name: customerName,
+          status: "completed",
+          transactionId: trx.transactionCode,
+          itemName,
+          amount: trx.price,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        status: normalizedStatus,
+        midtransStatus: trxStatus,
+      },
+    };
+  } catch (error) {
+    console.error("Sync Payment Error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ==============================================
+// CREATE PAYMENT (Checkout flow end-to-end)
+// ==============================================
+export async function createPayment(payload) {
+  await dbConnect();
+
+  try {
+    const settings = await Setting.findOne().lean();
+    if (!settings?.midtransServerKey) {
+      throw new Error("Payment Gateway belum dikonfigurasi.");
+    }
+
+    // Midtrans base url fallback (sandbox/production)
+    const baseUrl =
+      settings.midtransBaseUrl ||
+      (settings.midtransIsProduction
+        ? "https://app.midtrans.com"
+        : "https://app.sandbox.midtrans.com");
+
+    // ============ A) VALIDASI INPUT ============
+    const name = (payload.userName || "").trim();
+    const email = (payload.userEmail || "").trim().toLowerCase();
+    const phone = (payload.phone || "").trim();
+
+    const itemType = payload.itemType; // "Course" | "Product"
+    const itemId = payload.itemId;
+    const price = Number(payload.price);
+
+    if (!name) throw new Error("Nama wajib diisi.");
+    if (!email) throw new Error("Email wajib diisi.");
+    if (!phone) throw new Error("Nomor WhatsApp wajib diisi.");
+    if (!itemType || !["Course", "Product"].includes(itemType)) {
+      throw new Error("itemType wajib: Course atau Product.");
+    }
+    if (!itemId) throw new Error("itemId wajib diisi.");
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error("Harga tidak valid.");
+    }
+
+    // ambil itemName dari DB (biar akurat)
+    let itemName = "Pesanan Anda";
+    if (itemType === "Course") {
+      const course = await Course.findById(itemId).select("title name").lean();
+      if (!course) throw new Error("Course tidak ditemukan.");
+      itemName = course.title || course.name || itemName;
+    } else {
+      const product = await Product.findById(itemId)
+        .select("title name")
+        .lean();
+      if (!product) throw new Error("Product tidak ditemukan.");
+      itemName = product.title || product.name || itemName;
+    }
+
+    // ============ B) CEK EMAIL & PHONE ============
+    const userByEmail = await User.findOne({ email });
+    const userByPhone = await User.findOne({ phone });
+
+    if (
+      userByEmail &&
+      userByPhone &&
+      String(userByEmail._id) !== String(userByPhone._id)
+    ) {
+      throw new Error(
+        "Email dan nomor WhatsApp sudah terdaftar pada akun yang berbeda. Gunakan email/nomor yang sesuai.",
+      );
+    }
+
+    let user = userByEmail || userByPhone;
+    let autoCreatedUser = false;
+
+    if (user) {
+      // pastikan pair konsisten
+      if (user.email !== email) {
+        throw new Error(
+          "Email tidak cocok dengan akun yang menggunakan nomor ini.",
+        );
+      }
+      if (user.phone !== phone) {
+        throw new Error(
+          "Nomor WhatsApp tidak cocok dengan akun yang menggunakan email ini.",
+        );
+      }
+
+      // requirement: langsung aktif
+      const patch = {};
+      if (user.isActive === false) patch.isActive = true;
+      if (user.isVerified === false) patch.isVerified = true;
+      if (Object.keys(patch).length) {
+        await User.updateOne({ _id: user._id }, { $set: patch });
+      }
+    } else {
+      // ============ C) BUAT AKUN BARU LANGSUNG AKTIF ============
+      user = await User.create({
+        name,
+        email,
+        phone,
+        password: phone, // (disarankan nanti diganti flow set password/magic link)
+        isActive: true,
+        isVerified: true,
+        isAutoCreated: true,
+      });
+      autoCreatedUser = true;
+    }
+
+    // ============ D) BUAT TRANSAKSI PENDING ============
+    const orderId = `TRX-${nanoid()}`;
+
+    const trx = await Transaction.create({
+      transactionCode: orderId,
+      midtransOrderId: orderId,
+
+      type: itemType, // schema kamu: enum ["Course","Product"]
+      itemId,
+      itemType,
+
+      itemName,
+      userId: user._id,
+
+      price,
+      status: "pending",
+
+      // ✅ UTM jangan dihapus: simpan semua
+      utmSource: payload.utmSource || "direct",
+      utmMedium: payload.utmMedium || null,
+      utmCampaign: payload.utmCampaign || null,
+      utmTerm: payload.utmTerm || null,
+      utmContent: payload.utmContent || null,
+
+      referralCode: payload.referralCode || null,
+
+      autoCreatedUser,
+      midtransTransactionStatus: "pending",
+    });
+
+    // ============ E) CREATE MIDTRANS SNAP TOKEN ============
+    const authString = Buffer.from(`${settings.midtransServerKey}:`).toString(
+      "base64",
+    );
+
+    const midtransResponse = await fetch(`${baseUrl}/snap/v1/transactions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Basic ${authString}`,
+      },
+      body: JSON.stringify({
+        transaction_details: {
+          order_id: orderId,
+          gross_amount: price,
+        },
+        customer_details: {
+          first_name: name,
+          email,
+          phone,
+        },
+        item_details: [
+          {
+            id: String(itemId),
+            price: price,
+            quantity: 1,
+            name: itemName,
+          },
+        ],
+        callbacks: {
+          finish: `${settings.domain}/status?order_id=${orderId}`,
+        },
+      }),
+    });
+
+    const midtransData = await midtransResponse.json();
+
+    if (!midtransResponse.ok) {
+      // ============ H) CLEANUP kalau gagal buat token ============
+      await Transaction.deleteOne({ _id: trx._id });
+
+      if (autoCreatedUser) {
+        const other = await Transaction.countDocuments({ userId: user._id });
+        if (other === 0) {
+          await User.deleteOne({ _id: user._id, isAutoCreated: true });
+        }
+      }
+
+      throw new Error(midtransData?.error_messages?.[0] || "Midtrans Error");
+    }
+
+    // simpan snap token & redirect_url
+    await Transaction.updateOne(
+      { _id: trx._id },
+      {
+        $set: {
+          snapToken: midtransData.token,
+          snapRedirectUrl: midtransData.redirect_url,
+          midtransTransactionStatus: "pending",
+          midtransPayload: midtransData, // simpan response snap juga (optional)
+        },
+      },
+    );
+
+    // ============ G) EMAIL PENDING (sekali) ============
+    await sendPaymentEmail({
+      to: email,
+      name,
+      status: "pending",
+      transactionId: orderId,
+      itemName,
+      amount: price,
+    });
+
+    // ============ E) Redirect to Midtrans ============
+    return {
+      success: true,
+      token: midtransData.token,
+      redirectUrl: midtransData.redirect_url,
+      orderId,
+    };
+  } catch (error) {
+    console.error("Payment Error:", error);
     return { success: false, error: error.message };
   }
 }

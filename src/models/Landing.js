@@ -1,15 +1,5 @@
 import mongoose from "mongoose";
 
-// Subdocument schema for feature items with timestamps
-const FeatureItemSchema = new mongoose.Schema(
-  {
-    text: { type: String },
-    // Persist visibility flag for each feature
-    isActive: { type: Boolean, default: true },
-  },
-  { timestamps: true },
-);
-
 // Subdocument schema for testimonial items with timestamps
 const TestimonialItemSchema = new mongoose.Schema(
   {
@@ -26,6 +16,7 @@ const TestimonialItemSchema = new mongoose.Schema(
 const GalleryItemSchema = new mongoose.Schema({
   title: { type: String }, // Nama Project
   description: { type: String },
+  link: { type: String },
   images: [{ type: String }], // Array of image URLs/Paths
   isActive: { type: Boolean, default: true },
 });
@@ -65,12 +56,7 @@ const landingSchema = new mongoose.Schema({
     customTitle: { type: String },
     customSubtitle: { type: String },
   },
-  features: {
-    isActive: { type: Boolean, default: true },
-    customTitle: { type: String },
-    customSubtitle: { type: String },
-    items: [FeatureItemSchema],
-  },
+
   testimonials: {
     isActive: { type: Boolean, default: true },
     customTitle: { type: String },

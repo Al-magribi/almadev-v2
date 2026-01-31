@@ -27,7 +27,7 @@ import TabSMTP from "@/components/admin/setting/TabSMTP";
 import TabPayment from "@/components/admin/setting/TabPayment";
 import TabBackup from "@/components/admin/setting/TabBackup";
 
-export default function AdminSetting() {
+export default function AdminSetting({ req }) {
   const [activeTab, setActiveTab] = useState("general");
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,7 @@ export default function AdminSetting() {
     websiteName: "",
     websiteLogo: "",
     websiteFavicon: "",
+    domain: "",
     seoTitle: "",
     seoDescription: "",
     seoKeywords: "",
@@ -58,12 +59,23 @@ export default function AdminSetting() {
 
   const [notification, setNotification] = useState(null);
 
+  useEffect(() => {
+    // ambil domain saat ini
+    const origin = window.location.origin;
+    setFormData((prev) => ({ ...prev, domain: origin }));
+  }, []);
+
   // Fetch Data on Load
   useEffect(() => {
     const loadData = async () => {
       const { success, data } = await getSettings();
       if (success && data) {
-        setFormData((prev) => ({ ...prev, ...data }));
+        setFormData((prev) => ({
+          ...prev,
+          ...data,
+          // kalau domain di DB kosong, pakai origin
+          domain: data.domain || prev.domain,
+        }));
       }
       setLoading(false);
     };

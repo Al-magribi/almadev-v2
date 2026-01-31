@@ -14,6 +14,7 @@ export const getCurrentUser = async () => {
     // Kembalikan data user dari token
     return {
       userId: payload.userId,
+      name: payload.name,
       email: payload.email,
       role: payload.role,
       // Anda bisa fetch detail lengkap dari DB di sini jika perlu,

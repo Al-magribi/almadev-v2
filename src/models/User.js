@@ -10,6 +10,10 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true, trim: true },
     role: { type: String, enum: ["admin", "student"], default: "student" },
 
+    // Untuk flow checkout auto-create account
+    isActive: { type: Boolean, default: true },
+    isAutoCreated: { type: Boolean, default: false },
+
     bankInfo: {
       bankName: { type: String, default: null },
       accountNumber: { type: String, default: null },
@@ -41,24 +45,20 @@ UserSchema.path("email").validate(function (value) {
   return emailRegex.test(value);
 }, "Email tidak valid");
 
-// Validasi Phone
+// Validasi Phone (Indonesia)
 UserSchema.path("phone").validate(function (value) {
   const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{6,9}$/;
   return phoneRegex.test(value);
 }, "Nomor telepon tidak valid");
 
-// --- PERBAIKAN KRUSIAL DI SINI ---
-// 1. Hapus parameter 'next' dari dalam kurung: async function ()
-// 2. Hapus 'return next()' di baris validasi
+// Hash password sebelum save
 UserSchema.pre("save", async function () {
-  // Jika password tidak berubah, langsung return (selesai) tanpa next()
   if (!this.isModified("password")) return;
 
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
   } catch (error) {
-    // Gunakan throw error, bukan next(error)
     throw new Error(error);
   }
 });
@@ -67,7 +67,6 @@ UserSchema.methods.comparePassword = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-// Cek models existing untuk mencegah overwrite error di development
 const User = mongoose.models.User || mongoose.model("User", UserSchema);
 
 export default User;

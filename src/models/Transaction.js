@@ -2,75 +2,110 @@ import mongoose from "mongoose";
 
 const transactionSchema = new mongoose.Schema(
   {
-    // Transaction code
+    // =========================
+    // Transaction code (internal)
+    // =========================
     transactionCode: {
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
 
+    // =========================
     // Transaction details
+    // =========================
     type: {
       type: String,
       enum: ["Course", "Product"],
       required: true,
+      index: true,
     },
+
+    // Optional: nama item untuk email/log (tidak mengganggu polymorphic ref)
+    itemName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
     price: {
       type: Number,
       required: true,
-    },
-    status: {
-      type: String,
-      enum: ["pending", "completed", "failed", "cancelled", "refunded"],
-      default: "pending",
+      min: 0,
     },
 
-    // Polymorphic reference - can reference Course or Product
+    status: {
+      type: String,
+      enum: [
+        "pending",
+        "completed",
+        "failed",
+        "cancelled",
+        "refunded",
+        "expired",
+      ],
+      default: "pending",
+      index: true,
+    },
+
+    // =========================
+    // Polymorphic reference - Course / Product
+    // =========================
     itemId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
+      index: true,
     },
     itemType: {
       type: String,
       enum: ["Course", "Product"],
       required: true,
+      index: true,
     },
 
+    // =========================
     // User who made the transaction
+    // =========================
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
-    utmSource: {
-      type: String,
+    // ✅ Untuk cleanup user auto-created (poin H)
+    // set true saat transaksi dibuat karena user dibuat otomatis di checkout
+    autoCreatedUser: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
 
-    utmMedium: {
-      type: String,
-    },
+    // =========================
+    // UTM tracking (JANGAN DIHAPUS ✅)
+    // =========================
+    utmSource: { type: String },
+    utmMedium: { type: String },
+    utmCampaign: { type: String },
+    utmTerm: { type: String },
+    utmContent: { type: String },
 
-    utmCampaign: {
-      type: String,
-    },
-
-    utmTerm: {
-      type: String,
-    },
-
-    utmContent: {
-      type: String,
-    },
-
+    // =========================
     // Referral tracking
+    // =========================
     referralCode: {
       type: String,
     },
 
+    // =========================
+    // Payment identifiers
+    // =========================
     paymentId: {
       type: String,
     },
+
+    // paymentMethod diisi dari Midtrans: payment_type (credit_card, bank_transfer, gopay, qris, echannel, dll)
     paymentMethod: {
       type: String,
       enum: [
@@ -83,18 +118,57 @@ const transactionSchema = new mongoose.Schema(
         "kredivo",
         "alfamart",
         "indomart",
-        "cstore", // Tambahan: Midtrans sering mengirim ini untuk Alfamart/Indomaret
-        "echannel", // Tambahan: Wajib untuk Mandiri Bill Payment (Error Anda saat ini)
-        "permata_va", // Tambahan: Sering dipakai untuk Bank Permata
-        "bca_klikpay", // Tambahan: Opsional
-        "bri_epay", // Tambahan: Opsional
+        "cstore",
+        "echannel",
+        "permata_va",
+        "bca_klikpay",
+        "bri_epay",
         "other_qris",
-        "other_va", // Tambahan: Untuk bank lain
-        "unknown", // Tambahan: Safety net
+        "other_va",
+        "unknown",
       ],
+      default: "unknown",
+      index: true,
     },
 
-    // Refund fields
+    // =========================
+    // ✅ Midtrans Snap fields (tambahan)
+    // =========================
+
+    // order_id yang dikirim ke midtrans (biasanya sama dengan transactionCode)
+    midtransOrderId: {
+      type: String,
+      index: true,
+    },
+
+    // Snap token & redirect URL
+    snapToken: {
+      type: String,
+    },
+    snapRedirectUrl: {
+      type: String,
+    },
+
+    // Status Midtrans (untuk audit/debug)
+    midtransTransactionStatus: {
+      type: String,
+    },
+    midtransStatusCode: {
+      type: String,
+    },
+    fraudStatus: {
+      type: String,
+    },
+
+    // Simpan payload midtrans supaya gampang debug saat dispute
+    midtransPayload: {
+      type: Object,
+      default: null,
+    },
+
+    // =========================
+    // Refund fields (tetap ✅)
+    // =========================
     refundRequest: {
       requestedAt: {
         type: Date,
@@ -103,7 +177,6 @@ const transactionSchema = new mongoose.Schema(
         type: String,
         maxlength: 500,
       },
-      // Bank details for refund
       bankName: {
         type: String,
         maxlength: 100,
@@ -143,7 +216,7 @@ const transactionSchema = new mongoose.Schema(
         type: Date,
       },
       refundProof: {
-        type: String, // URL to uploaded image
+        type: String,
       },
       adminNotes: {
         type: String,
@@ -151,20 +224,10 @@ const transactionSchema = new mongoose.Schema(
       },
     },
 
-    // Direct refund amount field for easier access
     refundAmount: {
       type: Number,
       default: 0,
-    },
-
-    // Timestamps
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-    updatedAt: {
-      type: Date,
-      default: Date.now,
+      min: 0,
     },
   },
   {
@@ -172,12 +235,16 @@ const transactionSchema = new mongoose.Schema(
   },
 );
 
-// Compound index for efficient querying
+// =========================
+// Indexes
+// =========================
 transactionSchema.index({ userId: 1, createdAt: -1 });
 transactionSchema.index({ itemType: 1, itemId: 1 });
-transactionSchema.index({ status: 1 });
+transactionSchema.index({ midtransOrderId: 1, status: 1 });
 
-// Virtual for dynamic population
+// =========================
+// Virtuals
+// =========================
 transactionSchema.virtual("item", {
   refPath: "itemType",
   localField: "itemId",
@@ -185,17 +252,18 @@ transactionSchema.virtual("item", {
   justOne: true,
 });
 
-// Virtual for remaining amount after refund
 transactionSchema.virtual("remainingAmount").get(function () {
-  return this.price - this.refundAmount;
+  return (this.price || 0) - (this.refundAmount || 0);
 });
 
-// Virtual for refund percentage
 transactionSchema.virtual("refundPercentage").get(function () {
-  if (this.price === 0) return 0;
-  return Math.round((this.refundAmount / this.price) * 100);
+  if (!this.price) return 0;
+  return Math.round(((this.refundAmount || 0) / this.price) * 100);
 });
 
+// =========================
+// Model export (Next.js safe)
+// =========================
 const Transaction =
   mongoose.models.Transaction ||
   mongoose.model("Transaction", transactionSchema);

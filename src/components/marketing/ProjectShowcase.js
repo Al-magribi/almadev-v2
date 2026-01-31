@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ZoomIn,
   ImageIcon,
+  ExternalLink, // Import ikon link
 } from "lucide-react";
 import Image from "next/image";
 
@@ -75,7 +76,7 @@ export default function ProjectShowcase({
     <section className='py-20 bg-slate-900 text-white overflow-hidden'>
       <div className='container mx-auto px-4'>
         {/* Header Section */}
-        <div className='mb-12'>
+        <div className='mb-12 text-center'>
           <h2 className='text-3xl font-bold mb-2'>
             {customTitle || "Project Showcase"}
           </h2>
@@ -128,9 +129,22 @@ export default function ProjectShowcase({
                 <h3 className='text-xl font-bold text-white mb-2'>
                   {project.title}
                 </h3>
-                <p className='text-slate-400 text-sm line-clamp-3'>
+                <p className='text-slate-400 text-sm line-clamp-3 mb-6'>
                   {project.description}
                 </p>
+
+                {/* TOMBOL LINK PROJECT PADA CARD */}
+                {project.link && (
+                  <a
+                    href={project.link}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    onClick={(e) => e.stopPropagation()} // Mencegah modal terbuka saat klik link
+                    className='mt-auto inline-flex items-center gap-2 w-fit px-4 py-2 bg-slate-700 hover:bg-violet-600 text-white text-xs font-bold rounded-lg transition-all border border-slate-600 hover:border-violet-500'
+                  >
+                    Lihat Project <ExternalLink size={14} />
+                  </a>
+                )}
               </div>
             </div>
           ))}
@@ -163,7 +177,7 @@ export default function ProjectShowcase({
                   alt={`Slide ${currentImageIndex}`}
                   fill
                   className='object-contain animate-in zoom-in-95 duration-300'
-                  priority // Load priority for modal image
+                  priority
                 />
               ) : (
                 <div className='flex items-center justify-center h-full text-slate-500'>
@@ -172,15 +186,28 @@ export default function ProjectShowcase({
               )}
             </div>
 
-            {/* Caption */}
-            <div className='mt-6 text-center space-y-1 relative z-50'>
-              <h3 className='text-xl font-bold text-white'>
-                {selectedProject.title}
-              </h3>
-              <p className='text-sm text-slate-400'>
-                Gambar {currentImageIndex + 1} dari{" "}
-                {selectedProject.images.length}
-              </p>
+            {/* Caption & Link di dalam Modal */}
+            <div className='mt-6 text-center space-y-4 relative z-50'>
+              <div className='space-y-1'>
+                <h3 className='text-xl font-bold text-white'>
+                  {selectedProject.title}
+                </h3>
+                <p className='text-sm text-slate-400'>
+                  Gambar {currentImageIndex + 1} dari{" "}
+                  {selectedProject.images.length}
+                </p>
+              </div>
+
+              {selectedProject.link && (
+                <a
+                  href={selectedProject.link}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  className='inline-flex items-center gap-2 px-6 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-full transition-all shadow-lg shadow-violet-600/20'
+                >
+                  Kunjungi Website <ExternalLink size={16} />
+                </a>
+              )}
             </div>
 
             {/* Navigation Buttons */}

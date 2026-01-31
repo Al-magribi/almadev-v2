@@ -109,8 +109,6 @@ export async function signinUser(prevState, formData) {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    console.log(email, password);
-
     // Cari User
     const user = await User.findOne({ email });
 
@@ -137,6 +135,7 @@ export async function signinUser(prevState, formData) {
       userId: user._id.toString(),
       email: user.email,
       role: user.role,
+      name: user.name,
     };
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);

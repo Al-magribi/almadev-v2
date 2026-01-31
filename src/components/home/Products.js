@@ -37,7 +37,7 @@ export default function Products() {
           </div>
           <Link
             href='/products'
-            className='text-blue-600 font-semibold hover:text-blue-700 text-sm'
+            className='relative z-100 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-1'
           >
             Lihat Semua &rarr;
           </Link>

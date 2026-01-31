@@ -11,6 +11,7 @@ import {
   LogOut,
 } from "lucide-react";
 import ThemeToggle from "../ui/ThemeToggle";
+import { logoutUser } from "@/actions/auth-action";
 
 const menuItems = [
   { name: "Dashboard", href: "/student", icon: LayoutDashboard },
@@ -22,6 +23,10 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+
+  const handleLogout = async () => {
+    await logoutUser();
+  };
 
   return (
     // UBAH 1: bg-white untuk light, dark:bg-gray-900 untuk dark
@@ -77,8 +82,11 @@ export default function Sidebar() {
           <ThemeToggle />
         </div>
 
-        <button className='flex w-full items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 rounded-xl transition-all'>
-          <LogOut className='w-5 h-5' />
+        <button
+          onClick={handleLogout}
+          className='flex w-full items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300 rounded-xl transition-all'
+        >
+          <LogOut size={20} className='w-5 h-5' />
           <span className='font-medium text-sm'>Keluar</span>
         </button>
       </div>

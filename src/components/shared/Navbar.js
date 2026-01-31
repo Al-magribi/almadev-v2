@@ -1,10 +1,11 @@
+import { getCurrentUser } from "@/lib/auth-service";
 import Image from "next/image";
 import Link from "next/link";
 
-const Navbar = () => {
-  const user = null;
+const Navbar = async () => {
+  const user = await getCurrentUser();
   return (
-    <div className='border-b bg-white'>
+    <div className='bg-white shadow'>
       <div className='container mx-auto px-4 h-16 flex items-center justify-between'>
         <Link href='/' className='flex items-center gap-2'>
           <Image src='/logo.svg' alt='logo_almadev' width={36} height={36} />
