@@ -21,6 +21,9 @@ export default function Checkout({ item, user, utm }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const itemType = item?.itemType || "Course";
+  const planLabel =
+    item?.planName || (itemType === "Product" ? "Produk Digital" : "Online Course");
 
   const getCookie = (key) => {
     const match = document.cookie.match(
@@ -32,6 +35,14 @@ export default function Checkout({ item, user, utm }) {
   // 1. Definisikan Fitur Berdasarkan Nama Plan
   // Mengambil data dari item.planName yang dikirim dari server
   const getPlanFeatures = (planName) => {
+    if (itemType === "Product") {
+      return [
+        "Akses instan setelah pembayaran terverifikasi",
+        "File/asset siap pakai untuk proyek Anda",
+        "Dukungan teknis dasar via komunitas",
+      ];
+    }
+
     const name = planName?.toLowerCase() || "";
 
     if (name.includes("premium")) {
@@ -69,7 +80,7 @@ export default function Checkout({ item, user, utm }) {
     try {
       const res = await createPayment({
         itemId: item._id,
-        itemType: "Course",
+        itemType: itemType,
         itemName: item.name, // untuk email
         price: item.price,
         userName: user.name,
@@ -127,13 +138,15 @@ export default function Checkout({ item, user, utm }) {
                   {/* Badge Plan Name */}
                   <div
                     className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                      item.planName?.toLowerCase().includes("premium")
+                      itemType === "Product"
+                        ? "bg-slate-100 text-slate-700"
+                        : item.planName?.toLowerCase().includes("premium")
                         ? "bg-amber-100 text-amber-700"
                         : "bg-violet-50 text-violet-700"
                     }`}
                   >
                     <Zap size={14} fill='currentColor' />
-                    {item.planName || "Online Course"}
+                    {planLabel}
                   </div>
 
                   <h2 className='text-2xl font-bold text-slate-900 leading-tight'>
@@ -145,7 +158,9 @@ export default function Checkout({ item, user, utm }) {
               {/* List Fitur Dinamis */}
               <div className='pt-6 border-t border-slate-100'>
                 <h3 className='text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider'>
-                  Fasilitas Paket {item.planName}
+                  {itemType === "Product"
+                    ? "Yang Anda Dapatkan"
+                    : `Fasilitas Paket ${planLabel}`}
                 </h3>
                 <ul className='grid gap-3'>
                   {features.map((feature, i) => (
@@ -229,7 +244,9 @@ export default function Checkout({ item, user, utm }) {
 
             <div className='space-y-4 mb-10 text-slate-400 text-sm'>
               <div className='flex justify-between'>
-                <span>Paket {item.planName}</span>
+                <span>
+                  {itemType === "Product" ? "Produk Digital" : `Paket ${planLabel}`}
+                </span>
                 <span className='text-white font-medium'>
                   {formatRupiah(item.price)}
                 </span>

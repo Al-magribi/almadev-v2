@@ -5,20 +5,24 @@ import Link from "next/link";
 const Navbar = async () => {
   const user = await getCurrentUser();
   return (
-    <div className='bg-white shadow'>
+    <div className='sticky top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur'>
       <div className='container mx-auto px-4 h-16 flex items-center justify-between'>
-        <Link href='/' className='flex items-center gap-2'>
-          <Image src='/logo.svg' alt='logo_almadev' width={36} height={36} />
+        <Link href='/' className='flex items-center gap-3'>
+          <span className='relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900'>
+            <Image src='/logo.svg' alt='logo_almadev' width={22} height={22} />
+          </span>
 
-          <p className='text-xl font-bold text-blue-600'>ALMADEV</p>
+          <p className='text-lg font-extrabold tracking-tight text-slate-900'>
+            ALMA<span className='text-blue-600'>DEV</span>
+          </p>
         </Link>
 
-        <div className='flex items-center gap-4'>
+        <div className='flex items-center gap-3 sm:gap-4'>
           {user ? (
             // TAMPILAN JIKA SUDAH LOGIN
             <Link
               href='/student'
-              className='bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-gray-800 transition'
+              className='rounded-full bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800 transition'
             >
               Dashboard
             </Link>
@@ -27,13 +31,13 @@ const Navbar = async () => {
             <>
               <Link
                 href='/signin'
-                className='text-gray-600 hover:text-black font-medium'
+                className='text-sm font-semibold text-slate-600 hover:text-slate-900 transition'
               >
                 Masuk
               </Link>
               <Link
                 href='/signup'
-                className='bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition'
+                className='rounded-full bg-blue-600 text-white px-5 py-2 text-sm font-semibold hover:bg-blue-500 transition shadow-[0_8px_20px_-12px_rgba(37,99,235,0.8)]'
               >
                 Daftar
               </Link>

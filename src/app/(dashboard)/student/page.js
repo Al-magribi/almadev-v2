@@ -1,4 +1,3 @@
-// src/app/page.js (atau lokasi student dashboard Anda)
 import { getCurrentUser } from "@/lib/auth-service";
 import dbConnect from "@/lib/db";
 import { formatDate } from "@/lib/client-utils";

@@ -1,4 +1,5 @@
 import { getCourseDetail } from "@/actions/course-actions";
+import { getProductDetail } from "@/actions/product-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import Checkout from "@/components/marketing/checkout/Checkout"; // Sesuaikan path import
 import { notFound, redirect } from "next/navigation";
@@ -7,7 +8,9 @@ export default async function CheckoutPage({ searchParams }) {
   // 1. Ambil data dari URL
   const query = await searchParams;
   const {
+    itemType,
     courseId,
+    productId,
     planName,
     name,
     email,
@@ -18,6 +21,48 @@ export default async function CheckoutPage({ searchParams }) {
     utm_term,
     utm_content,
   } = query;
+
+  const normalizedType = itemType === "Product" ? "Product" : "Course";
+
+  if (normalizedType === "Product") {
+    if (!productId) {
+      return redirect("/");
+    }
+
+    const product = await getProductDetail(productId);
+    if (!product) return notFound();
+
+    const sessionUser = await getCurrentUser();
+    const userData = {
+      id: sessionUser?.id || "guest",
+      name: sessionUser?.name || name,
+      email: sessionUser?.email || email,
+      phone: sessionUser?.phone || phone,
+    };
+
+    const item = {
+      _id: product._id.toString(),
+      name: product.name,
+      price: product.price,
+      image: product.image || "/placeholder-course.jpg",
+      planName: planName || "Produk Digital",
+      itemType: "Product",
+    };
+
+    return (
+      <Checkout
+        item={item}
+        user={userData}
+        utm={{
+          utmSource: utm_source || null,
+          utmMedium: utm_medium || null,
+          utmCampaign: utm_campaign || null,
+          utmTerm: utm_term || null,
+          utmContent: utm_content || null,
+        }}
+      />
+    );
+  }
 
   if (!courseId) {
     return redirect("/"); // Kick user jika tidak ada ID
@@ -61,6 +106,7 @@ export default async function CheckoutPage({ searchParams }) {
     price: realPrice, // INI HARGA AMAN DARI DB
     image: course.image || "/placeholder-course.jpg",
     planName: planName, // Simpan info plan
+    itemType: "Course",
   };
 
   // Render Client Component

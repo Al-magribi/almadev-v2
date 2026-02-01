@@ -20,7 +20,7 @@ export default function Courses({ data = [] }) {
 
           <Link
             href='/courses'
-            className='relative z-100 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all flex items-center gap-1'
+            className='relative z-100 bg-blue-600 text-white px-4 py-2 rounded-full hover:bg-blue-700 transition-all flex items-center gap-1'
           >
             Lihat Semua &rarr;
           </Link>

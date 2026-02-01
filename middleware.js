@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
+import { proxy } from "./src/proxy";
 
 const getStatusLockKey = (id) =>
   `status_locked_${String(id).replace(/[^A-Za-z0-9_-]/g, "_")}`;
 
-export function middleware(req) {
+export async function middleware(req) {
   const { pathname, searchParams } = req.nextUrl;
+  const authResponse = await proxy(req);
+
+  if (authResponse) {
+    return authResponse;
+  }
 
   if (pathname.startsWith("/checkout")) {
     if (req.cookies.get("checkout_locked")?.value === "1") {
@@ -32,5 +38,5 @@ export function middleware(req) {
 }
 
 export const config = {
-  matcher: ["/checkout", "/status"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|logo.svg).*)"],
 };

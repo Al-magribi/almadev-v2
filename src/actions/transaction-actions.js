@@ -222,6 +222,52 @@ export async function syncTransactionStatus(orderId) {
   }
 }
 
+export async function getTransactionsByUser(userId) {
+  await dbConnect();
+
+  if (!userId) return [];
+
+  try {
+    const transactions = await Transaction.find({ userId })
+      .populate({
+        path: "item",
+        select: "name title image price category type",
+      })
+      .sort({ createdAt: -1 })
+      .lean({ virtuals: true });
+
+    const plain = serializeData(transactions);
+
+    return plain.map((t) => ({
+      id: t._id,
+      transactionCode: t.transactionCode,
+      price: t.price,
+      status: t.status,
+      paymentMethod: t.paymentMethod,
+      createdAt: t.createdAt,
+      itemType: t.itemType,
+      itemName: t.itemName,
+      utmSource: t.utmSource,
+      refundAmount: t.refundAmount || 0,
+      refundRequest: t.refundRequest || null,
+      midtransStatus: t.midtransTransactionStatus || null,
+      item: t.item
+        ? {
+            _id: t.item._id,
+            name: t.item.name || t.item.title,
+            image: t.item.image,
+            price: t.item.price,
+            category: t.item.category,
+            type: t.item.type,
+          }
+        : null,
+    }));
+  } catch (error) {
+    console.error("Error fetching user transactions:", error);
+    return [];
+  }
+}
+
 // ==============================================
 // CREATE PAYMENT (Checkout flow end-to-end)
 // ==============================================
@@ -441,5 +487,52 @@ export async function createPayment(payload) {
   } catch (error) {
     console.error("Payment Error:", error);
     return { success: false, error: error.message };
+  }
+}
+
+// ✅ MY PRODUCTS: LIST PRODUK YANG SUDAH DIBELI USER
+export async function getPurchasedProductsByUser(userId) {
+  await dbConnect();
+  if (!userId) return [];
+
+  try {
+    const txs = await Transaction.find({
+      userId,
+      status: "completed",
+      itemType: "Product",
+    })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "item",
+        select:
+          "name image description rating totalReviews category price fileLink videoLink",
+      })
+      .lean({ virtuals: true });
+
+    const plain = JSON.parse(JSON.stringify(txs));
+
+    return plain
+      .filter((t) => t.item)
+      .map((t) => ({
+        transactionCode: t.transactionCode,
+        purchasedAt: t.createdAt,
+        price: t.price,
+        status: t.status,
+        product: {
+          _id: t.item._id,
+          name: t.item.name,
+          image: t.item.image,
+          description: t.item.description,
+          rating: t.item.rating,
+          totalReviews: t.item.totalReviews,
+          category: t.item.category,
+          price: t.item.price,
+          fileLink: t.item.fileLink,
+          videoLink: t.item.videoLink,
+        },
+      }));
+  } catch (e) {
+    console.error("getPurchasedProductsByUser error:", e);
+    return [];
   }
 }

@@ -6,7 +6,7 @@ import crypto from "crypto";
 import { cookies, headers } from "next/headers";
 import { SignJWT } from "jose";
 import dbConnect from "@/lib/db";
-import { sendActivationEmail } from "@/lib/emailService";
+import { sendActivationEmail, sendResetPasswordEmail } from "@/lib/emailService";
 import { redirect } from "next/navigation";
 
 export async function signupUser(prevState, formData) {
@@ -178,4 +178,103 @@ export async function logoutUser() {
 
   // 2. Redirect ke halaman login (atau home)
   redirect("/");
+}
+
+export async function requestPasswordReset(prevState, formData) {
+  try {
+    await dbConnect();
+
+    const email = formData.get("email");
+    if (!email) {
+      return { success: false, message: "Email wajib diisi." };
+    }
+
+    const user = await User.findOne({ email });
+
+    // Hindari enumeration: selalu tampilkan pesan yang sama
+    if (!user) {
+      return {
+        success: true,
+        message:
+          "Jika email terdaftar, kami akan mengirimkan link reset password.",
+      };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetExpire = new Date(Date.now() + 60 * 60 * 1000); // 1 jam
+
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpire = resetExpire;
+    await user.save();
+
+    const headersList = await headers();
+    const host = headersList.get("host");
+    const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+    const resetUrl = `${protocol}://${host}/reset?token=${resetToken}`;
+
+    const sent = await sendResetPasswordEmail(email, user.name, resetUrl);
+    if (!sent) {
+      return {
+        success: false,
+        message: "Gagal mengirim email reset. Silakan coba lagi.",
+      };
+    }
+
+    return {
+      success: true,
+      message:
+        "Jika email terdaftar, kami akan mengirimkan link reset password.",
+    };
+  } catch (error) {
+    console.log(error);
+    return { code: 500, message: error.message };
+  }
+}
+
+export async function resetPassword(prevState, formData) {
+  try {
+    await dbConnect();
+
+    const token = formData.get("token");
+    const newPassword = formData.get("password");
+    const confirmPassword = formData.get("confirmPassword");
+
+    if (!token) {
+      return { success: false, message: "Token reset tidak ditemukan." };
+    }
+    if (!newPassword || !confirmPassword) {
+      return { success: false, message: "Semua kolom wajib diisi." };
+    }
+    if (newPassword.length < 6) {
+      return { success: false, message: "Password minimal 6 karakter." };
+    }
+    if (newPassword !== confirmPassword) {
+      return { success: false, message: "Konfirmasi password tidak cocok." };
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        message: "Token tidak valid atau sudah kadaluarsa.",
+      };
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
+    await user.save();
+
+    return {
+      success: true,
+      message: "Password berhasil diperbarui. Silakan login.",
+    };
+  } catch (error) {
+    console.log(error);
+    return { code: 500, message: error.message };
+  }
 }

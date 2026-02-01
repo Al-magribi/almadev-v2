@@ -9,7 +9,10 @@ export default function CheckoutModal({
   onClose,
   user,
   courseId,
+  itemId,
+  itemType,
   planData,
+  planName,
   utmData,
 }) {
   const router = useRouter();
@@ -31,10 +34,22 @@ export default function CheckoutModal({
     e.preventDefault();
     clearCheckoutLock();
 
+    const normalizedType = itemType || "Course";
+    const effectiveId = itemId || courseId;
+    const selectedPlanName =
+      planData?.name ||
+      planName ||
+      (normalizedType === "Product" ? "Produk Digital" : "Online Course");
+
     // Construct Query Params
     const params = new URLSearchParams();
-    params.set("courseId", courseId);
-    params.set("planName", planData.name);
+    params.set("itemType", normalizedType);
+    if (normalizedType === "Product") {
+      params.set("productId", effectiveId);
+    } else {
+      params.set("courseId", effectiveId);
+    }
+    params.set("planName", selectedPlanName);
     params.set("name", formData.name);
     params.set("email", formData.email);
     params.set("phone", formData.phone);

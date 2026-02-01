@@ -5,7 +5,13 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import { Bold, Italic, Code, ImageIcon, List } from "lucide-react";
 
-export default function TiptapEditor({ content, onChange, onSend, loading }) {
+export default function TiptapEditor({
+  content,
+  onChange,
+  onSend,
+  loading,
+  submitLabel = "Kirim Balasan",
+}) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -15,6 +21,7 @@ export default function TiptapEditor({ content, onChange, onSend, loading }) {
       }),
     ],
     content: content || "",
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
@@ -75,7 +82,7 @@ export default function TiptapEditor({ content, onChange, onSend, loading }) {
           disabled={loading || editor.isEmpty}
           className='bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50'
         >
-          {loading ? "Mengirim..." : "Kirim Balasan"}
+          {loading ? "Mengirim..." : submitLabel}
         </button>
       </div>
     </div>

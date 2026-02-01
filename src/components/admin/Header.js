@@ -2,7 +2,14 @@
 
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { Menu, Bell } from "lucide-react";
-import Image from "next/image";
+
+const getInitial = (name) => {
+  if (!name) return "U";
+  const parts = String(name).trim().split(" ");
+  const first = parts[0]?.[0] || "";
+  const second = parts.length > 1 ? parts[1]?.[0] : "";
+  return (first + second).toUpperCase();
+};
 
 export default function Header({ toggleSidebar, user }) {
   return (

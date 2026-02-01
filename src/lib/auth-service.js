@@ -17,6 +17,7 @@ export const getCurrentUser = async () => {
       name: payload.name,
       email: payload.email,
       role: payload.role,
+      avatar: payload.avatar,
       // Anda bisa fetch detail lengkap dari DB di sini jika perlu,
       // tapi untuk performa, data di token biasanya cukup untuk UI dasar.
     };

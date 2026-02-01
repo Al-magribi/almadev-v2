@@ -43,6 +43,8 @@ export default function PricingCardWrapper({
           onClose={() => setIsModalOpen(false)}
           user={user}
           courseId={courseId}
+          itemId={courseId}
+          itemType='Course'
           // PENTING: Oper data plan ke modal agar bisa dibaca saat submit
           planData={plan}
           courseData={courseData}

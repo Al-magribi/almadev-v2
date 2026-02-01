@@ -22,6 +22,22 @@ export async function getProducts(query = {}) {
   }));
 }
 
+// --- GET PRODUCT DETAIL ---
+export async function getProductDetail(id) {
+  await dbConnect();
+  const product = await Product.findById(id).lean();
+  if (!product) return null;
+  return {
+    ...product,
+    _id: product._id.toString(),
+    reviews: product.reviews?.map((r) => ({
+      ...r,
+      _id: r._id.toString(),
+      user: r.user?.toString(),
+    })),
+  };
+}
+
 // --- CREATE / UPDATE PRODUCT ---
 export async function saveProduct(prevState, formData) {
   try {

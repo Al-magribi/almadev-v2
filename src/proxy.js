@@ -62,8 +62,8 @@ export async function proxy(request) {
     }
   }
 
-  // Jika lolos semua pengecekan, lanjut ke halaman tujuan
-  return NextResponse.next();
+  // Jika lolos semua pengecekan, biarkan middleware utama lanjut
+  return null;
 }
 
 export const config = {

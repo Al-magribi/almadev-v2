@@ -1,22 +1,20 @@
-import React from "react";
-import Sidebar from "@/components/student/Sidebar";
+"use server";
 
-export default function StudentLayout({ children }) {
-  return (
-    <div className='min-h-screen bg-gray-50 dark:bg-gray-950 flex text-gray-900 dark:text-white font-sans transition-colors duration-300'>
-      {/* Sidebar (Hidden on Mobile, Visible on Desktop) */}
-      <div className='hidden md:block'>
-        <Sidebar />
-      </div>
+import { getUserProfile } from "@/actions/user-actions";
+import StudentShell from "@/components/student/StudentShell";
+import { redirect } from "next/navigation";
 
-      {/* Main Content Area */}
-      {/* ml-64 memberikan margin kiri sebesar lebar sidebar agar konten tidak tertumpuk */}
-      <main className='flex-1 md:ml-64 min-h-screen relative'>
-        {/* Header Mobile (Optional - bisa ditambahkan nanti) */}
+export default async function StudentLayout({ children }) {
+  const { success, data: user } = await getUserProfile();
 
-        {/* Content Wrapper */}
-        <div className='p-6 md:p-8 max-w-7xl mx-auto'>{children}</div>
-      </main>
-    </div>
-  );
+  const currentUser = success ? user : null;
+
+  if (!user) {
+    redirect("/signin");
+  }
+  if (user.role === "admin") {
+    redirect("/admin");
+  }
+
+  return <StudentShell user={currentUser}>{children}</StudentShell>;
 }

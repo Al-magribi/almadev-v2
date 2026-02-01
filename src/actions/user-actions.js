@@ -187,9 +187,56 @@ export async function updateUserProfile(prevState, formData) {
     await currentUser.save();
 
     revalidatePath("/account"); // Refresh cache halaman akun
+    revalidatePath("/student/profile");
     return { success: true, message: "Profil berhasil diperbarui!" };
   } catch (error) {
     console.error("Update Error:", error);
+    return { success: false, error: "Terjadi kesalahan server." };
+  }
+}
+
+// --- 4. CHANGE PASSWORD ---
+export async function changeUserPassword(prevState, formData) {
+  try {
+    await dbConnect();
+
+    const session = await getCurrentUser();
+    if (!session || !session.userId) {
+      return { success: false, error: "Sesi habis. Silakan login kembali." };
+    }
+
+    const currentPassword = formData.get("currentPassword");
+    const newPassword = formData.get("newPassword");
+    const confirmPassword = formData.get("confirmPassword");
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return { success: false, error: "Semua kolom wajib diisi." };
+    }
+
+    if (newPassword.length < 6) {
+      return { success: false, error: "Password baru minimal 6 karakter." };
+    }
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, error: "Konfirmasi password tidak cocok." };
+    }
+
+    const user = await User.findById(session.userId);
+    if (!user) return { success: false, error: "User tidak ditemukan." };
+
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return { success: false, error: "Password saat ini salah." };
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    revalidatePath("/student/profile");
+
+    return { success: true, message: "Password berhasil diperbarui." };
+  } catch (error) {
+    console.error("Change Password Error:", error);
     return { success: false, error: "Terjadi kesalahan server." };
   }
 }

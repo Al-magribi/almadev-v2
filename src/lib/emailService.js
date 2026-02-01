@@ -1,15 +1,62 @@
 import nodemailer from "nodemailer";
+import dbConnect from "@/lib/db";
+import Setting from "@/models/Setting";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: true,
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const SETTINGS_TTL_MS = 5 * 60 * 1000;
+let cachedSettings = { value: null, fetchedAt: 0 };
+
+async function getSettings() {
+  const now = Date.now();
+  if (cachedSettings.value && now - cachedSettings.fetchedAt < SETTINGS_TTL_MS) {
+    return cachedSettings.value;
+  }
+
+  await dbConnect();
+  const settings = await Setting.findOne({}).lean();
+  cachedSettings = {
+    value: settings || null,
+    fetchedAt: now,
+  };
+  return cachedSettings.value;
+}
+
+function buildBaseUrl(domain) {
+  if (!domain) return "";
+  if (domain.startsWith("http://") || domain.startsWith("https://")) {
+    return domain.replace(/\/+$/, "");
+  }
+  return `https://${domain.replace(/\/+$/, "")}`;
+}
+
+async function getTransporter() {
+  const settings = await getSettings();
+  if (!settings) {
+    throw new Error("Pengaturan SMTP belum tersedia di database.");
+  }
+
+  const port = Number(settings.smtpPort || 0);
+  const secure = port === 465;
+
+  if (!settings.smtpHost || !settings.smtpUser || !settings.smtpPassword) {
+    throw new Error("Konfigurasi SMTP belum lengkap.");
+  }
+
+  return nodemailer.createTransport({
+    host: settings.smtpHost,
+    port,
+    secure,
+    auth: {
+      user: settings.smtpUser,
+      pass: settings.smtpPassword,
+    },
+  });
+}
+
+function getFromAddress(settings) {
+  const name = settings.smtpFromName || "Admin Course";
+  const email = settings.smtpFromEmail || settings.smtpUser;
+  return `"${name}" <${email}>`;
+}
 
 function paymentEmailTemplate({
   name = "Pelanggan",
@@ -122,8 +169,14 @@ function paymentEmailTemplate({
 }
 
 export const sendActivationEmail = async (email, name, activationUrl) => {
+  const settings = await getSettings();
+  if (!settings) {
+    console.error("Pengaturan SMTP belum tersedia di database.");
+    return false;
+  }
+
   const mailOptions = {
-    from: `"ALMADEV" <${process.env.EMAIL_USER}>`,
+    from: getFromAddress(settings),
     to: email,
     subject: "Aktivasi Akun Web Developer Course",
     html: `
@@ -146,9 +199,56 @@ export const sendActivationEmail = async (email, name, activationUrl) => {
 
   try {
     console.log(`[Kirim EMAIL] ${email} `);
+    const transporter = await getTransporter();
     await transporter.sendMail(mailOptions);
 
     console.log(`Berhasil terkirim`);
+    return true;
+  } catch (error) {
+    console.error("Gagal mengirim email:", error);
+    return false;
+  }
+};
+
+export const sendResetPasswordEmail = async (email, name, resetUrl) => {
+  const settings = await getSettings();
+  if (!settings) {
+    console.error("Pengaturan SMTP belum tersedia di database.");
+    return false;
+  }
+
+  const mailOptions = {
+    from: getFromAddress(settings),
+    to: email,
+    subject: "Reset Password - Web Developer Course",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px;">
+        <h2 style="color: #111827; margin-bottom: 8px;">Halo, ${name}</h2>
+        <p style="color: #4b5563; margin: 0 0 16px;">
+          Kami menerima permintaan untuk reset password akun Anda. Klik tombol di bawah untuk melanjutkan.
+        </p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${resetUrl}" style="background-color: #2563EB; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 700; display: inline-block;">
+            Reset Password
+          </a>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">
+          Atau salin link ini ke browser Anda:<br/>
+          <a href="${resetUrl}">${resetUrl}</a>
+        </p>
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #9ca3af;">
+          Link ini berlaku selama 1 jam. Jika Anda tidak meminta reset password, abaikan email ini.
+        </p>
+      </div>
+    `,
+  };
+
+  try {
+    console.log(`[Kirim EMAIL] ${email} `);
+    const transporter = await getTransporter();
+    await transporter.sendMail(mailOptions);
+    console.log("Berhasil terkirim");
     return true;
   } catch (error) {
     console.error("Gagal mengirim email:", error);
@@ -168,7 +268,12 @@ export async function sendPaymentEmail({
   if (!transactionId) throw new Error("transactionId wajib diisi");
   if (!itemName) throw new Error("itemName wajib diisi");
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "";
+  const settings = await getSettings();
+  if (!settings) {
+    throw new Error("Pengaturan SMTP belum tersedia di database.");
+  }
+
+  const baseUrl = buildBaseUrl(settings.domain);
   const statusUrl = baseUrl
     ? `${baseUrl}/status?order_id=${encodeURIComponent(transactionId)}`
     : "";
@@ -184,7 +289,7 @@ export async function sendPaymentEmail({
   const subject = subjectMap[status] || subjectMap.pending;
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    from: getFromAddress(settings),
     to,
     subject,
     html: paymentEmailTemplate({
@@ -197,5 +302,6 @@ export async function sendPaymentEmail({
     }),
   };
 
+  const transporter = await getTransporter();
   return transporter.sendMail(mailOptions);
 }

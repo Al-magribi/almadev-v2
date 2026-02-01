@@ -2,7 +2,6 @@
 "use server";
 
 import dbConnect from "@/lib/db";
-import Course from "@/models/Course";
 import Landing from "@/models/Landing";
 import Qna from "@/models/Qna";
 import { revalidatePath } from "next/cache";
@@ -12,6 +11,11 @@ import {
   uploadImage,
 } from "@/lib/server-utils";
 import Transaction from "@/models/Transaction";
+import Progress from "@/models/Progress";
+import { getCurrentUser } from "@/lib/auth-service";
+import Editor from "@/models/Editor";
+import Note from "@/models/Note";
+import Course from "@/models/Course";
 
 // 1. LIST COURSES
 export async function getCourses() {
@@ -177,6 +181,15 @@ export async function updateCourse(courseId, formData) {
     }
     // ----------------------------------------------------
 
+    const normalizedCurriculum = (curriculum || []).map((section, index) => ({
+      ...section,
+      order: index,
+      lessons: (section.lessons || []).map((lesson, lessonIndex) => ({
+        ...lesson,
+        order: lessonIndex,
+      })),
+    }));
+
     // 5. Update Data Utama Course ke Database
     const updatePayload = {
       name,
@@ -184,7 +197,7 @@ export async function updateCourse(courseId, formData) {
       description,
       video,
       isActive,
-      curriculum,
+      curriculum: normalizedCurriculum,
       objectives,
     };
 
@@ -351,4 +364,810 @@ export async function getPurchasedCoursesByUser(userId) {
     console.error("getPurchasedCoursesByUser error:", e);
     return [];
   }
+}
+
+export async function updateLessonProgress({
+  courseId,
+  lessonId,
+  watchDuration,
+  totalDuration,
+  isCompleted,
+}) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!courseId || !lessonId) {
+    return { success: false, message: "Invalid payload" };
+  }
+
+  await dbConnect();
+
+  const now = new Date();
+  const safeWatch = Math.max(0, Number(watchDuration) || 0);
+  const safeTotal = Math.max(0, Number(totalDuration) || 0);
+  const completed = Boolean(isCompleted);
+
+  await Progress.findOneAndUpdate(
+    { userId: user.userId, courseId, lessonId },
+    {
+      $set: {
+        userId: user.userId,
+        courseId,
+        lessonId,
+        totalDuration: safeTotal,
+        lastWatchedAt: now,
+        ...(completed ? { isCompleted: true } : {}),
+      },
+      $max: { watchDuration: safeWatch },
+    },
+    { upsert: true },
+  );
+
+  return { success: true };
+}
+
+export async function getEditorEntries({ courseId, lessonId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return [];
+  if (!courseId) return [];
+
+  await dbConnect();
+
+  const entries = await Editor.find({
+    user: user.userId,
+    courseId,
+    lessonId: lessonId || "general",
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  return JSON.parse(JSON.stringify(entries)).map((entry) => ({
+    id: String(entry._id),
+    title: entry.title,
+    language: entry.language,
+    code: entry.code,
+    createdAt: entry.createdAt ? entry.createdAt.toISOString() : null,
+    updatedAt: entry.updatedAt ? entry.updatedAt.toISOString() : null,
+  }));
+}
+
+export async function createEditorEntry({ courseId, lessonId, title, code }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!courseId || !title) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+
+  const payload = {
+    courseId,
+    lessonId: lessonId || "general",
+    user: user.userId,
+    title,
+    language: "web",
+    code: typeof code === "string" ? code : JSON.stringify(code || {}),
+  };
+
+  const entry = await Editor.create(payload);
+
+  return {
+    success: true,
+    data: {
+      id: String(entry._id),
+      title: entry.title,
+      language: entry.language,
+      code: entry.code,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString(),
+    },
+  };
+}
+
+export async function updateEditorEntry({ entryId, title, code }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!entryId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+
+  const entry = await Editor.findById(entryId);
+  if (!entry) return { success: false, message: "Entry tidak ditemukan" };
+  if (String(entry.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  if (title) entry.title = title;
+  if (code !== undefined) {
+    entry.code = typeof code === "string" ? code : JSON.stringify(code || {});
+  }
+  entry.updatedAt = new Date();
+  await entry.save();
+
+  return {
+    success: true,
+    data: {
+      id: String(entry._id),
+      title: entry.title,
+      language: entry.language,
+      code: entry.code,
+      updatedAt: entry.updatedAt.toISOString(),
+    },
+  };
+}
+
+export async function deleteEditorEntry({ entryId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!entryId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+
+  const entry = await Editor.findById(entryId);
+  if (!entry) return { success: false, message: "Entry tidak ditemukan" };
+  if (String(entry.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  await Editor.findByIdAndDelete(entryId);
+  return { success: true };
+}
+
+export async function getNotes({ courseId, lessonId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return [];
+  if (!courseId) return [];
+
+  await dbConnect();
+
+  const notes = await Note.find({
+    user: user.userId,
+    courseId,
+    lessonId: lessonId || "general",
+  })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+  return JSON.parse(JSON.stringify(notes)).map((note) => ({
+    id: String(note._id),
+    title: note.title,
+    content: note.content,
+    createdAt: note.createdAt ? note.createdAt.toISOString() : null,
+    updatedAt: note.updatedAt ? note.updatedAt.toISOString() : null,
+  }));
+}
+
+export async function createNote({ courseId, lessonId, title, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!courseId || !title || !content) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+
+  const note = await Note.create({
+    user: user.userId,
+    courseId,
+    lessonId: lessonId || "general",
+    title,
+    content,
+  });
+
+  return {
+    success: true,
+    data: {
+      id: String(note._id),
+      title: note.title,
+      content: note.content,
+      createdAt: note.createdAt.toISOString(),
+      updatedAt: note.updatedAt.toISOString(),
+    },
+  };
+}
+
+export async function updateNote({ noteId, title, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!noteId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+
+  const note = await Note.findById(noteId);
+  if (!note) return { success: false, message: "Catatan tidak ditemukan" };
+  if (String(note.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  if (title) note.title = title;
+  if (content) note.content = content;
+  note.updatedAt = new Date();
+  await note.save();
+
+  return {
+    success: true,
+    data: {
+      id: String(note._id),
+      title: note.title,
+      content: note.content,
+      updatedAt: note.updatedAt.toISOString(),
+    },
+  };
+}
+
+export async function deleteNote({ noteId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!noteId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+
+  const note = await Note.findById(noteId);
+  if (!note) return { success: false, message: "Catatan tidak ditemukan" };
+  if (String(note.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  await Note.findByIdAndDelete(noteId);
+  return { success: true };
+}
+
+const extractImageUrls = (html) => {
+  if (!html || typeof html !== "string") return [];
+  const urls = [];
+  const regex = /<img[^>]+src=["']([^"']+)["']/gi;
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    urls.push(match[1]);
+  }
+  return urls;
+};
+
+const deleteQnaImages = async (contents) => {
+  const urls = contents.flatMap((content) => extractImageUrls(content));
+  const uniqueUrls = Array.from(new Set(urls));
+  await Promise.all(uniqueUrls.map((url) => deleteFile(url)));
+};
+
+export async function uploadQnaImage(file) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!file || file.size === 0) {
+    return { success: false, message: "File kosong" };
+  }
+
+  await dbConnect();
+  const url = await uploadImage(file, "qna");
+  if (!url) return { success: false, message: "Upload gagal" };
+  return { success: true, url };
+}
+
+export async function createQnaQuestion({
+  courseId,
+  title,
+  content,
+  lessonId,
+}) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!courseId || !title || !content) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+
+  const question = await Qna.create({
+    courseId,
+    lessonId: lessonId || "general",
+    user: user.userId,
+    title,
+    content,
+    isQuestion: true,
+    isInstructor: false,
+  });
+
+  return {
+    success: true,
+    data: {
+      id: String(question._id),
+      title: question.title,
+      content: question.content,
+      createdAt: question.createdAt.toISOString(),
+      repliesCount: 0,
+      isResolved: false,
+      isPinned: false,
+      isInstructor: question.isInstructor,
+      user: { id: String(user.userId), name: user.name || "User" },
+      replies: [],
+    },
+  };
+}
+
+export async function updateQnaQuestion({ qnaId, title, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!qnaId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+  if (String(qna.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  if (title) qna.title = title;
+  if (content) qna.content = content;
+  await qna.save();
+
+  return {
+    success: true,
+    data: {
+      id: String(qna._id),
+      title: qna.title,
+      content: qna.content,
+    },
+  };
+}
+
+export async function deleteQnaQuestion({ qnaId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!qnaId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+  if (String(qna.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  const contents = [
+    qna.content,
+    ...(qna.replies || []).map((reply) => reply.content),
+  ];
+  await deleteQnaImages(contents);
+
+  await Qna.findByIdAndDelete(qnaId);
+  return { success: true };
+}
+
+export async function createQnaReply({ qnaId, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!qnaId || !content) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  qna.replies.push({
+    user: user.userId,
+    content,
+    isInstructor: false,
+  });
+  await qna.save();
+
+  const reply = qna.replies[qna.replies.length - 1];
+
+  return {
+    success: true,
+    data: {
+      id: String(reply._id),
+      content: reply.content,
+      createdAt: reply.createdAt.toISOString(),
+      isInstructor: reply.isInstructor,
+      user: { id: String(user.userId), name: user.name || "User" },
+      likesCount: reply.likes?.length || 0,
+      liked: false,
+    },
+  };
+}
+
+export async function updateQnaReply({ qnaId, replyId, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!qnaId || !replyId || !content) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  const reply = qna.replies.id(replyId);
+  if (!reply) return { success: false, message: "Balasan tidak ditemukan" };
+  if (String(reply.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  reply.content = content;
+  await qna.save();
+
+  return {
+    success: true,
+    data: {
+      id: String(reply._id),
+      content: reply.content,
+    },
+  };
+}
+
+export async function deleteQnaReply({ qnaId, replyId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!qnaId || !replyId) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  const reply = qna.replies.id(replyId);
+  if (!reply) return { success: false, message: "Balasan tidak ditemukan" };
+  if (String(reply.user) !== String(user.userId)) {
+    return { success: false, message: "Tidak diizinkan" };
+  }
+
+  await deleteQnaImages([reply.content]);
+
+  reply.deleteOne();
+  await qna.save();
+
+  return { success: true };
+}
+
+export async function toggleQnaReplyLike({ qnaId, replyId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, message: "Unauthorized" };
+  if (!qnaId || !replyId) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  const reply = qna.replies.id(replyId);
+  if (!reply) return { success: false, message: "Balasan tidak ditemukan" };
+
+  if (!Array.isArray(reply.likes)) {
+    reply.likes = [];
+  }
+
+  const existingIndex = reply.likes.findIndex(
+    (like) => String(like.user) === String(user.userId),
+  );
+
+  if (existingIndex >= 0) {
+    reply.likes.splice(existingIndex, 1);
+  } else {
+    reply.likes.push({ user: user.userId });
+  }
+
+  await qna.save();
+
+  return {
+    success: true,
+    data: {
+      liked: existingIndex < 0,
+      likesCount: reply.likes.length,
+    },
+  };
+}
+
+export async function getQnaByCourse({ courseId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId) return { success: false, data: [] };
+  if (!courseId) return { success: false, data: [] };
+
+  await dbConnect();
+  const course = await Course.findById(courseId)
+    .select("name curriculum")
+    .lean();
+  const items = await Qna.find({ courseId })
+    .populate("user", "name")
+    .populate("replies.user", "name")
+    .sort({ isPinned: -1, createdAt: -1 })
+    .lean();
+
+  const data = items.map((item) => {
+    const context = getModuleLessonTitle(course, item.lessonId);
+    return {
+      id: String(item._id),
+      title: item.title,
+      content: item.content,
+      createdAt: item.createdAt ? item.createdAt.toISOString() : null,
+      repliesCount: item.replies?.length || 0,
+      isResolved: item.isResolved,
+      isPinned: item.isPinned,
+      isInstructor: item.isInstructor,
+      user: item.user
+        ? { id: String(item.user._id), name: item.user.name }
+        : null,
+      course: course ? { id: String(course._id), name: course.name } : null,
+      moduleTitle: context?.moduleTitle || null,
+      lessonTitle: context?.lessonTitle || null,
+      replies: (item.replies || []).map((reply) => ({
+        id: String(reply._id),
+        content: reply.content,
+        createdAt: reply.createdAt ? reply.createdAt.toISOString() : null,
+        isInstructor: reply.isInstructor,
+        likesCount: reply.likes?.length || 0,
+        liked: reply.likes?.some(
+          (like) => String(like.user) === String(user.userId),
+        ),
+        user: reply.user
+          ? { id: String(reply.user._id), name: reply.user.name }
+          : null,
+      })),
+    };
+  });
+
+  return { success: true, data };
+}
+
+export async function getAdminQna({ page = 1, limit = 20, filter = "all" }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin")
+    return { success: false, data: [] };
+
+  await dbConnect();
+
+  const query =
+    filter === "solved"
+      ? { isResolved: true }
+      : filter === "unsolved"
+        ? { isResolved: false }
+        : {};
+
+  const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
+  const skip = (Number(page) - 1) * safeLimit;
+
+  const [items, total] = await Promise.all([
+    Qna.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .populate("user", "name")
+      .populate("replies.user", "name")
+      .populate("courseId", "name curriculum")
+      .lean(),
+    Qna.countDocuments(query),
+  ]);
+
+  const data = items.map((item) => {
+    const course = item.courseId;
+    let moduleNumber = null;
+    let lessonNumber = null;
+    let moduleTitle = null;
+    let lessonTitle = null;
+
+    if (course?.curriculum && item.lessonId) {
+      for (let i = 0; i < course.curriculum.length; i++) {
+        const section = course.curriculum[i];
+        const lessonIndex = (section.lessons || []).findIndex(
+          (lesson) => String(lesson._id) === String(item.lessonId),
+        );
+        if (lessonIndex >= 0) {
+          moduleNumber = i + 1;
+          lessonNumber = lessonIndex + 1;
+          moduleTitle = section.title || null;
+          lessonTitle = section.lessons?.[lessonIndex]?.title || null;
+          break;
+        }
+      }
+    }
+
+    return {
+      id: String(item._id),
+      title: item.title,
+      content: item.content,
+      createdAt: item.createdAt ? item.createdAt.toISOString() : null,
+      isResolved: item.isResolved,
+      user: item.user
+        ? { id: String(item.user._id), name: item.user.name }
+        : null,
+      course: course ? { id: String(course._id), name: course.name } : null,
+      moduleNumber,
+      lessonNumber,
+      moduleTitle,
+      lessonTitle,
+      repliesCount: item.replies?.length || 0,
+      replies: (item.replies || []).map((reply) => ({
+        id: String(reply._id),
+        content: reply.content,
+        createdAt: reply.createdAt ? reply.createdAt.toISOString() : null,
+        isInstructor: reply.isInstructor,
+        likesCount: reply.likes?.length || 0,
+        liked: reply.likes?.some(
+          (like) => String(like.user) === String(user.userId),
+        ),
+        user: reply.user
+          ? { id: String(reply.user._id), name: reply.user.name }
+          : null,
+      })),
+    };
+  });
+
+  return {
+    success: true,
+    data,
+    hasMore: skip + data.length < total,
+  };
+}
+
+function getModuleLessonTitle(course, lessonId) {
+  if (!course?.curriculum || !lessonId) return null;
+  for (const section of course.curriculum) {
+    const lesson = (section.lessons || []).find(
+      (item) => String(item._id) === String(lessonId),
+    );
+    if (lesson) {
+      return {
+        moduleTitle: section.title || null,
+        lessonTitle: lesson.title || null,
+      };
+    }
+  }
+  return null;
+}
+
+export async function toggleQnaSolvedAdmin({ qnaId, isResolved }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin") {
+    return { success: false, message: "Unauthorized" };
+  }
+  if (!qnaId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+  const qna = await Qna.findByIdAndUpdate(
+    qnaId,
+    { isResolved: Boolean(isResolved) },
+    { new: true },
+  );
+
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  return {
+    success: true,
+    data: { id: String(qna._id), isResolved: qna.isResolved },
+  };
+}
+
+export async function deleteQnaAdmin({ qnaId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin") {
+    return { success: false, message: "Unauthorized" };
+  }
+  if (!qnaId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  const contents = [
+    qna.content,
+    ...(qna.replies || []).map((reply) => reply.content),
+  ];
+  await deleteQnaImages(contents);
+
+  await Qna.findByIdAndDelete(qnaId);
+  return { success: true };
+}
+
+export async function updateQnaQuestionAdmin({ qnaId, title, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin") {
+    return { success: false, message: "Unauthorized" };
+  }
+  if (!qnaId) return { success: false, message: "Data tidak lengkap" };
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  if (title) qna.title = title;
+  if (content) qna.content = content;
+  await qna.save();
+
+  return {
+    success: true,
+    data: {
+      id: String(qna._id),
+      title: qna.title,
+      content: qna.content,
+      updatedAt: qna.updatedAt ? qna.updatedAt.toISOString() : null,
+    },
+  };
+}
+
+export async function updateQnaReplyAdmin({ qnaId, replyId, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin") {
+    return { success: false, message: "Unauthorized" };
+  }
+  if (!qnaId || !replyId || !content) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  const reply = qna.replies.id(replyId);
+  if (!reply) return { success: false, message: "Balasan tidak ditemukan" };
+
+  reply.content = content;
+  await qna.save();
+
+  return {
+    success: true,
+    data: {
+      id: String(reply._id),
+      content: reply.content,
+      updatedAt: reply.updatedAt ? reply.updatedAt.toISOString() : null,
+    },
+  };
+}
+
+export async function deleteQnaReplyAdmin({ qnaId, replyId }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin") {
+    return { success: false, message: "Unauthorized" };
+  }
+  if (!qnaId || !replyId) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  const reply = qna.replies.id(replyId);
+  if (!reply) return { success: false, message: "Balasan tidak ditemukan" };
+
+  await deleteQnaImages([reply.content]);
+
+  reply.deleteOne();
+  await qna.save();
+
+  return { success: true };
+}
+
+export async function createQnaReplyAdmin({ qnaId, content }) {
+  const user = await getCurrentUser();
+  if (!user?.userId || user.role !== "admin") {
+    return { success: false, message: "Unauthorized" };
+  }
+  if (!qnaId || !content) {
+    return { success: false, message: "Data tidak lengkap" };
+  }
+
+  await dbConnect();
+  const qna = await Qna.findById(qnaId);
+  if (!qna) return { success: false, message: "QnA tidak ditemukan" };
+
+  qna.replies.push({
+    user: user.userId,
+    content,
+    isInstructor: true,
+  });
+  await qna.save();
+
+  const reply = qna.replies[qna.replies.length - 1];
+
+  return {
+    success: true,
+    data: {
+      id: String(reply._id),
+      content: reply.content,
+      createdAt: reply.createdAt.toISOString(),
+      isInstructor: reply.isInstructor,
+      user: { id: String(user.userId), name: user.name || "Admin" },
+      likesCount: reply.likes?.length || 0,
+      liked: false,
+    },
+  };
 }
