@@ -1,5 +1,6 @@
 import { getCourseDetail } from "@/actions/course-actions";
 import { getProductDetail } from "@/actions/product-actions";
+import { getSettings } from "@/actions/setting-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import Checkout from "@/components/marketing/checkout/Checkout"; // Sesuaikan path import
 import { notFound, redirect } from "next/navigation";
@@ -21,6 +22,9 @@ export default async function CheckoutPage({ searchParams }) {
     utm_term,
     utm_content,
   } = query;
+
+  const settings = await getSettings();
+  const metaPixelId = settings?.data?.metaPixelId || "";
 
   const normalizedType = itemType === "Product" ? "Product" : "Course";
 
@@ -53,6 +57,7 @@ export default async function CheckoutPage({ searchParams }) {
       <Checkout
         item={item}
         user={userData}
+        metaPixelId={metaPixelId}
         utm={{
           utmSource: utm_source || null,
           utmMedium: utm_medium || null,
@@ -114,6 +119,7 @@ export default async function CheckoutPage({ searchParams }) {
     <Checkout
       item={item}
       user={userData}
+      metaPixelId={metaPixelId}
       utm={{
         utmSource: utm_source || null,
         utmMedium: utm_medium || null,

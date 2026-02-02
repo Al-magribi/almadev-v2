@@ -27,11 +27,6 @@ export default function Header({ toggleSidebar, user }) {
       </div>
 
       <div className='flex items-center gap-3 sm:gap-4'>
-        <button className='p-2 relative rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-colors'>
-          <Bell size={20} />
-          <span className='absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white dark:border-zinc-900'></span>
-        </button>
-
         <div className='h-6 w-px bg-zinc-200 dark:bg-zinc-700 mx-1'></div>
 
         <ThemeToggle />

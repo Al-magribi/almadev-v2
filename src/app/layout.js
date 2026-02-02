@@ -2,6 +2,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { Fira_Sans, Fira_Code } from "next/font/google";
 import { ThemeProvider } from "@/components/provider/ThemeProvider"; // Pastikan path import benar
+import { getSettings } from "@/actions/setting-actions";
 
 const firaSans = Fira_Sans({
   subsets: ["latin"],
@@ -35,7 +36,15 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const settings = await getSettings();
+  const metaPixelId = settings?.data?.metaPixelId || "";
+  const pixelSrc = metaPixelId
+    ? `https://www.facebook.com/tr?id=${encodeURIComponent(
+        metaPixelId,
+      )}&ev=PageView&noscript=1`
+    : "";
+
   return (
     <html lang='en' suppressHydrationWarning>
       <body
@@ -50,6 +59,17 @@ export default function RootLayout({ children }) {
         >
           {children}
           <Toaster position='top-center' />
+          {pixelSrc ? (
+            <noscript>
+              <img
+                height='1'
+                width='1'
+                style={{ display: "none" }}
+                alt=''
+                src={pixelSrc}
+              />
+            </noscript>
+          ) : null}
         </ThemeProvider>
       </body>
     </html>

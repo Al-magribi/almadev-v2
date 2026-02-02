@@ -22,7 +22,7 @@ export default function PricingSection() {
           <div className='p-12 md:w-1/2 bg-blue-600 text-white flex flex-col justify-center'>
             <div className='mb-6'>
               <span className='text-3xl md:text-5xl font-extrabold'>
-                Rp 2.750.000
+                Rp 3.000.000
               </span>
               <p className='mt-2 opacity-80 italic'>
                 Biaya Pendaftaran: Rp 100.000

@@ -13,14 +13,17 @@ import {
   CreditCard,
   X,
   GraduationCap,
-  LogOut, // Import icon LogOut
+  LogOut,
+  LaptopMinimal, // Import icon LogOut
 } from "lucide-react";
+import Image from "next/image";
 
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   { name: "Kursus", icon: BookOpen, href: "/admin/courses" },
   { name: "Produk Digital", icon: Package, href: "/admin/products" },
   { name: "Peserta", icon: Users, href: "/admin/participants" },
+  { name: "Bootcamp", icon: LaptopMinimal, href: "/admin/bootcamp" },
   { name: "Pesan", icon: Users, href: "/admin/messages" },
   { name: "Transaksi", icon: CreditCard, href: "/admin/transactions" },
   { name: "Pengaturan", icon: Settings, href: "/admin/settings" },
@@ -59,10 +62,20 @@ export default function Sidebar({ isOpen, setIsOpen }) {
   `}
       >
         <div className='flex items-center justify-between h-16 px-6 border-b border-zinc-200 dark:border-zinc-800 shrink-0'>
-          <div className='flex items-center justify-center gap-2 text-violet-600 dark:text-violet-400'>
-            <img src={"/logo.svg"} alt='logo_almadev' height={35} width={35} />
-            <span className=' font-mono font-bold text-xl'>ALMADEV</span>
-          </div>
+          <Link href='/' className='flex items-center gap-3'>
+            <span className='relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900'>
+              <Image
+                src='/logo.svg'
+                alt='logo_almadev'
+                width={22}
+                height={22}
+              />
+            </span>
+
+            <p className='text-lg font-extrabold tracking-tight text-slate-900'>
+              ALMA<span className='text-blue-600'>DEV</span>
+            </p>
+          </Link>
 
           <button
             onClick={() => setIsOpen(false)}

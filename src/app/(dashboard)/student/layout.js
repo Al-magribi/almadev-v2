@@ -15,6 +15,9 @@ export default async function StudentLayout({ children }) {
   if (user.role === "admin") {
     redirect("/admin");
   }
+  if (user.role === "bootcamp") {
+    redirect("/online-bootcamp");
+  }
 
   return <StudentShell user={currentUser}>{children}</StudentShell>;
 }

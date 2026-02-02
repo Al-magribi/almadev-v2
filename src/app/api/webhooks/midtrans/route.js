@@ -6,6 +6,14 @@ import Transaction from "@/models/Transaction";
 import User from "@/models/User";
 import Setting from "@/models/Setting";
 import { sendPaymentEmail } from "@/lib/emailService";
+import BootcampParticipant from "@/models/BootcampParticipant";
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Midtrans webhook endpoint is live.",
+  });
+}
 
 export async function POST(req) {
   await dbConnect();
@@ -88,10 +96,18 @@ export async function POST(req) {
       );
 
       // aktifkan user (kalau kamu memang pakai isActive/isVerified)
-      await User.updateOne(
-        { _id: trx.userId },
-        { $set: { isActive: true, isVerified: true } },
-      );
+      const userUpdate = { isActive: true, isVerified: true };
+      if (trx.itemType === "BootcampParticipant") {
+        userUpdate.role = "bootcamp";
+      }
+      await User.updateOne({ _id: trx.userId }, { $set: userUpdate });
+
+      if (trx.itemType === "BootcampParticipant") {
+        await BootcampParticipant.updateOne(
+          { _id: trx.itemId },
+          { $set: { status: "active", midtransStatus: trxStatus } },
+        );
+      }
 
       // kirim email sukses
       if (customerEmail) {
@@ -118,6 +134,12 @@ export async function POST(req) {
 
       // (opsional) kirim email pending (biasanya cukup saat create transaksi)
       // if (customerEmail) { ... }
+      if (trx.itemType === "BootcampParticipant") {
+        await BootcampParticipant.updateOne(
+          { _id: trx.itemId },
+          { $set: { status: "pending", midtransStatus: trxStatus } },
+        );
+      }
     } else if (["deny", "cancel", "expire"].includes(trxStatus)) {
       // normalize status internal
       const normalized =
@@ -150,6 +172,14 @@ export async function POST(req) {
         if (remaining === 0) {
           await User.deleteOne({ _id: trx.userId, isAutoCreated: true });
         }
+      }
+
+      if (trx.itemType === "BootcampParticipant") {
+        const nextStatus = trxStatus === "expire" ? "expired" : "cancelled";
+        await BootcampParticipant.updateOne(
+          { _id: trx.itemId },
+          { $set: { status: nextStatus, midtransStatus: trxStatus } },
+        );
       }
     } else {
       // status lain dari Midtrans: challenge, authorize, etc

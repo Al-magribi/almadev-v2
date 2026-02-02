@@ -10,6 +10,7 @@ export default function PricingCardWrapper({
   user,
   courseData,
   utmData,
+  metaPixelId,
 }) {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,6 +50,7 @@ export default function PricingCardWrapper({
           planData={plan}
           courseData={courseData}
           utmData={utmData}
+          metaPixelId={metaPixelId}
         />
       )}
     </>

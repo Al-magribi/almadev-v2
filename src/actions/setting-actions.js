@@ -2,6 +2,7 @@
 
 import dbConnect from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { deleteFile, uploadImage } from "@/lib/server-utils";
 
 // --- IMPORT SEMUA MODEL DARI FOLDER MODELS ---
 import User from "@/models/User";
@@ -42,7 +43,68 @@ export async function getSettings() {
 export async function updateSettings(formData) {
   await dbConnect();
   try {
-    const setting = await Setting.findOneAndUpdate({}, formData, {
+    const isFormData = typeof formData?.get === "function";
+    const currentSetting = await Setting.findOne({}).lean();
+
+    const getField = (name) =>
+      isFormData ? formData.get(name) : formData?.[name];
+
+    const resolveImage = async (input, currentValue, folder) => {
+      if (input && typeof input !== "string") {
+        const uploadedPath = await uploadImage(input, folder);
+        if (uploadedPath) {
+          if (currentValue && currentValue.startsWith("/uploads")) {
+            await deleteFile(currentValue);
+          }
+          return uploadedPath;
+        }
+        return currentValue || "";
+      }
+
+      if (typeof input === "string") {
+        return input;
+      }
+
+      return currentValue || "";
+    };
+
+    const parseBool = (value) => value === true || value === "true";
+
+    const payload = {
+      websiteName: getField("websiteName") || "",
+      domain: getField("domain") || "",
+      youtubeRoadmapLink: getField("youtubeRoadmapLink") || "",
+      seoTitle: getField("seoTitle") || "",
+      seoDescription: getField("seoDescription") || "",
+      seoKeywords: getField("seoKeywords") || "",
+      metaPixelId: getField("metaPixelId") || "",
+      googleAnalyticsId: getField("googleAnalyticsId") || "",
+      smtpHost: getField("smtpHost") || "",
+      smtpPort: getField("smtpPort") || "",
+      smtpUser: getField("smtpUser") || "",
+      smtpPassword: getField("smtpPassword") || "",
+      smtpFromEmail: getField("smtpFromEmail") || "",
+      smtpFromName: getField("smtpFromName") || "",
+      midtransServerKey: getField("midtransServerKey") || "",
+      midtransClientKey: getField("midtransClientKey") || "",
+      midtransMerchantId: getField("midtransMerchantId") || "",
+      midtransBaseUrl: getField("midtransBaseUrl") || "",
+      midtransIsProduction: parseBool(getField("midtransIsProduction")),
+      maintenanceMode: parseBool(getField("maintenanceMode")),
+    };
+
+    payload.websiteLogo = await resolveImage(
+      getField("websiteLogo"),
+      currentSetting?.websiteLogo,
+      "branding",
+    );
+    payload.websiteFavicon = await resolveImage(
+      getField("websiteFavicon"),
+      currentSetting?.websiteFavicon,
+      "branding",
+    );
+
+    const setting = await Setting.findOneAndUpdate({}, payload, {
       new: true,
       upsert: true,
       setDefaultsOnInsert: true,

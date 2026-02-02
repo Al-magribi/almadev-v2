@@ -22,6 +22,7 @@ import CurriculumList from "@/components/marketing/CurriculumList";
 import { trackPageView } from "@/actions/dataview-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import PricingCardWrapper from "@/components/marketing/checkout/PricingCardWrapper";
+import { getSettings } from "@/actions/setting-actions";
 
 // --- METADATA ---
 export async function generateMetadata({ params }) {
@@ -44,6 +45,8 @@ export default async function CourseLandingPage({ params, searchParams }) {
   const data = JSON.parse(JSON.stringify(dataCourse));
 
   const user = await getCurrentUser();
+  const settings = await getSettings();
+  const metaPixelId = settings?.data?.metaPixelId || "";
 
   if (!data || !data.course) return notFound();
 
@@ -420,6 +423,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
                       image: course.image,
                     }}
                     utmData={utmData}
+                    metaPixelId={metaPixelId}
                   />
                 </div>
               ))}

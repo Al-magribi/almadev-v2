@@ -11,6 +11,7 @@ import {
   Download,
   PlayCircle,
   Copy,
+  StickyNote,
 } from "lucide-react";
 import { formatDate, formatRupiah } from "@/lib/client-utils";
 import { getPurchasedProductsByUser } from "@/actions/transaction-actions";
@@ -150,6 +151,7 @@ export default function ProductList({ userId }) {
                     : p.image
                       ? p.image
                       : "/placeholder.png";
+                const downloadUrl = p.filePath || p.fileLink || "";
 
                 return (
                   <div
@@ -207,11 +209,12 @@ export default function ProductList({ userId }) {
                       </div>
 
                       <div className='mt-4 flex flex-wrap items-center gap-2'>
-                        {p.fileLink ? (
+                        {downloadUrl ? (
                           <a
-                            href={p.fileLink}
+                            href={downloadUrl}
                             target='_blank'
                             rel='noreferrer'
+                            download
                             className='inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-200'
                           >
                             <Download className='h-4 w-4' />
@@ -267,6 +270,18 @@ export default function ProductList({ userId }) {
                           {it.transactionCode}
                         </span>
                       </div>
+
+                      {p.note ? (
+                        <div className='mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-700'>
+                          <div className='mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500'>
+                            <StickyNote className='h-3.5 w-3.5' />
+                            Catatan
+                          </div>
+                          <p className='leading-relaxed text-zinc-700'>
+                            {p.note}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );

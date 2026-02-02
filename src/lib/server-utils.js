@@ -3,11 +3,23 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const MAX_FILE_SIZE = 5000000; // 5MB
+const MAX_PRODUCT_FILE_SIZE = 50000000; // 50MB
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
   "image/png",
   "image/webp",
+];
+const ACCEPTED_PRODUCT_FILE_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/x-rar-compressed",
+  "application/vnd.rar",
 ];
 
 // Schema Validasi Course
@@ -71,6 +83,18 @@ export const productSchema = z.object({
   category: z.string().min(1, "Kategori harus dipilih"),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
   fileLink: z.string().optional(),
+  filePath: z
+    .any()
+    .refine((file) => {
+      if (typeof file === "string") return true;
+      if (!file || file.size === 0) return true;
+      return file.size <= MAX_PRODUCT_FILE_SIZE;
+    }, "Ukuran file maksimal 50MB.")
+    .refine((file) => {
+      if (typeof file === "string") return true;
+      if (!file || file.size === 0) return true;
+      return ACCEPTED_PRODUCT_FILE_TYPES.includes(file.type);
+    }, "Format file harus PDF, Word, Excel, ZIP, atau RAR."),
   videoLink: z.string().optional(),
 
   // Validasi Image: Boleh string (URL lama) atau File (Upload baru)
@@ -139,6 +163,29 @@ export async function uploadImage(file, folder = "courses") {
     return `/uploads/${folder}/${filename}`;
   } catch (error) {
     console.error("Upload Error:", error);
+    return null;
+  }
+}
+
+export async function uploadProductFile(file, folder = "product-files") {
+  if (!file || file.size === 0 || file === "undefined") return null;
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const ext = file.name ? file.name.split(".").pop() : "bin";
+    const safeExt = ext ? ext.toLowerCase() : "bin";
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const filename = `${folder}-${uniqueSuffix}.${safeExt}`;
+
+    const uploadDir = path.join(process.cwd(), "public/uploads", folder);
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const filePath = path.join(uploadDir, filename);
+    await fs.writeFile(filePath, buffer);
+
+    return `/uploads/${folder}/${filename}`;
+  } catch (error) {
+    console.error("Upload File Error:", error);
     return null;
   }
 }

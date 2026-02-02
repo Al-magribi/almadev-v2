@@ -2,7 +2,12 @@
 "use server";
 
 import dbConnect from "@/lib/db";
-import { deleteFile, productSchema, uploadImage } from "@/lib/server-utils";
+import {
+  deleteFile,
+  productSchema,
+  uploadImage,
+  uploadProductFile,
+} from "@/lib/server-utils";
 import Product from "@/models/Product";
 import { revalidatePath } from "next/cache";
 
@@ -52,6 +57,7 @@ export async function saveProduct(prevState, formData) {
       category: formData.get("category"),
       status: formData.get("status"),
       fileLink: formData.get("fileLink"),
+      filePath: formData.get("filePath"),
       videoLink: formData.get("videoLink"),
       image: formData.get("image"), // Bisa File atau String (jika tidak diubah)
     };
@@ -69,8 +75,9 @@ export async function saveProduct(prevState, formData) {
       };
     }
 
-    const { image, ...productData } = validatedFields.data;
+    const { image, filePath, ...productData } = validatedFields.data;
     let imagePath = undefined;
+    let uploadedFilePath = undefined;
 
     // 3. Handle Image Upload
     // Jika image adalah File (bukan string URL), upload baru
@@ -82,11 +89,19 @@ export async function saveProduct(prevState, formData) {
       imagePath = image;
     }
 
+    if (filePath instanceof File && filePath.size > 0) {
+      const uploadedFile = await uploadProductFile(filePath, "product-files");
+      if (uploadedFile) uploadedFilePath = uploadedFile;
+    } else if (typeof filePath === "string" && filePath.length > 0) {
+      uploadedFilePath = filePath;
+    }
+
     // 4. Simpan ke Database
     if (id) {
       // --- UPDATE MODE ---
       const updateData = { ...productData };
       if (imagePath) updateData.image = imagePath;
+      if (uploadedFilePath) updateData.filePath = uploadedFilePath;
 
       await Product.findByIdAndUpdate(id, updateData);
       revalidatePath("/admin/product");
@@ -100,7 +115,11 @@ export async function saveProduct(prevState, formData) {
         };
       }
 
-      await Product.create({ ...productData, image: imagePath });
+      await Product.create({
+        ...productData,
+        image: imagePath,
+        filePath: uploadedFilePath || "",
+      });
       revalidatePath("/admin/product");
       return { success: true, message: "Produk berhasil dibuat!" };
     }

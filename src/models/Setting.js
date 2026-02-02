@@ -7,6 +7,7 @@ const settingSchema = new mongoose.Schema(
     websiteLogo: { type: String, default: "" }, // URL Logo
     websiteFavicon: { type: String, default: "" }, // URL Favicon
     domain: { type: String, default: "domain.com" },
+    youtubeRoadmapLink: { type: String, default: "" },
 
     // --- SEO & META ---
     seoTitle: { type: String, default: "Platform Belajar Online Terbaik" },

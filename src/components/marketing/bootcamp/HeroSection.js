@@ -1,5 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import BootcampRegistrationModal from "@/components/marketing/bootcamp/BootcampRegistrationModal";
 
 export default function HeroSection() {
   const fadeIn = {
@@ -7,6 +9,7 @@ export default function HeroSection() {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.6 },
   };
+  const [open, setOpen] = useState(false);
 
   return (
     <header className='relative min-h-[90vh] flex items-center justify-center bg-white overflow-hidden'>
@@ -26,15 +29,20 @@ export default function HeroSection() {
             bersama ALMADEV.
           </p>
           <div className='flex flex-col sm:flex-row gap-4 justify-center'>
-            <a
-              href='#daftar'
+            <button
+              type='button'
+              onClick={() => setOpen(true)}
               className='px-8 py-4 bg-blue-600 text-white font-bold rounded-lg shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all transform hover:-translate-y-1'
             >
               Daftar Sekarang - Rp 100.000
-            </a>
+            </button>
           </div>
         </motion.div>
       </div>
+      <BootcampRegistrationModal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+      />
     </header>
   );
 }

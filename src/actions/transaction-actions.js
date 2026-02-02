@@ -5,6 +5,7 @@ import Course from "@/models/Course";
 import Product from "@/models/Product";
 import User from "@/models/User";
 import Setting from "@/models/Setting";
+import BootcampParticipant from "@/models/BootcampParticipant";
 import dbConnect from "@/lib/db";
 import { customAlphabet } from "nanoid";
 import { sendPaymentEmail } from "@/lib/emailService";
@@ -184,29 +185,57 @@ export async function syncTransactionStatus(orderId) {
       },
     );
 
-    if (normalizedStatus === "completed" && trx.status !== "completed") {
-      await User.updateOne(
-        { _id: trx.userId },
-        { $set: { isActive: true, isVerified: true } },
-      );
-
-      const user = await User.findById(trx.userId)
-        .select("name fullName email")
-        .lean();
-      const customerName = user?.name || user?.fullName || "Pelanggan";
-      const customerEmail = user?.email;
-      const itemName = trx.itemName || "Pesanan Anda";
-
-      if (customerEmail) {
-        await sendPaymentEmail({
-          to: customerEmail,
-          name: customerName,
-          status: "completed",
-          transactionId: trx.transactionCode,
-          itemName,
-          amount: trx.price,
-        });
+    if (normalizedStatus === "completed") {
+      const userUpdate = { isActive: true, isVerified: true };
+      if (trx.itemType === "BootcampParticipant") {
+        userUpdate.role = "bootcamp";
       }
+      await User.updateOne({ _id: trx.userId }, { $set: userUpdate });
+
+      if (trx.itemType === "BootcampParticipant") {
+        await BootcampParticipant.updateOne(
+          { _id: trx.itemId },
+          { $set: { status: "active", midtransStatus: trxStatus } },
+        );
+      }
+
+      if (trx.status !== "completed") {
+        const user = await User.findById(trx.userId)
+          .select("name fullName email")
+          .lean();
+        const customerName = user?.name || user?.fullName || "Pelanggan";
+        const customerEmail = user?.email;
+        const itemName = trx.itemName || "Pesanan Anda";
+
+        if (customerEmail) {
+          await sendPaymentEmail({
+            to: customerEmail,
+            name: customerName,
+            status: "completed",
+            transactionId: trx.transactionCode,
+            itemName,
+            amount: trx.price,
+          });
+        }
+      }
+    }
+
+    if (
+      normalizedStatus !== "completed" &&
+      trx.itemType === "BootcampParticipant"
+    ) {
+      const nextStatus =
+        trxStatus === "pending"
+          ? "pending"
+          : trxStatus === "expire"
+            ? "expired"
+            : ["deny", "cancel"].includes(trxStatus)
+              ? "cancelled"
+              : "pending";
+      await BootcampParticipant.updateOne(
+        { _id: trx.itemId },
+        { $set: { status: nextStatus, midtransStatus: trxStatus } },
+      );
     }
 
     return {
@@ -265,6 +294,29 @@ export async function getTransactionsByUser(userId) {
   } catch (error) {
     console.error("Error fetching user transactions:", error);
     return [];
+  }
+}
+
+export async function getTransactionByCode(orderId) {
+  await dbConnect();
+
+  if (!orderId) {
+    return { success: false, error: "orderId wajib diisi." };
+  }
+
+  try {
+    const trx = await Transaction.findOne({ transactionCode: orderId })
+      .select("price itemType itemId itemName status transactionCode")
+      .lean();
+
+    if (!trx) {
+      return { success: false, error: "Transaksi tidak ditemukan." };
+    }
+
+    return { success: true, data: serializeData(trx) };
+  } catch (error) {
+    console.error("getTransactionByCode error:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -505,7 +557,7 @@ export async function getPurchasedProductsByUser(userId) {
       .populate({
         path: "item",
         select:
-          "name image description rating totalReviews category price fileLink videoLink",
+          "name image description rating totalReviews category price fileLink filePath videoLink note",
       })
       .lean({ virtuals: true });
 
@@ -528,7 +580,9 @@ export async function getPurchasedProductsByUser(userId) {
           category: t.item.category,
           price: t.item.price,
           fileLink: t.item.fileLink,
+          filePath: t.item.filePath,
           videoLink: t.item.videoLink,
+          note: t.item.note,
         },
       }));
   } catch (e) {

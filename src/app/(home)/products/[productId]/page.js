@@ -2,6 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { BadgeCheck, CheckCircle2, ShieldCheck, Star } from "lucide-react";
 import { getProductDetail } from "@/actions/product-actions";
+import { getSettings } from "@/actions/setting-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import { formatRupiah } from "@/lib/client-utils";
 import ProductCheckoutButton from "@/components/marketing/checkout/ProductCheckoutButton";
@@ -26,6 +27,8 @@ export default async function ProductDetailPage({ params, searchParams }) {
   if (!product) return notFound();
 
   const user = await getCurrentUser();
+  const settings = await getSettings();
+  const metaPixelId = settings?.data?.metaPixelId || "";
 
   const utmData = {
     utm_source: sParams?.utm_source || null,
@@ -91,6 +94,7 @@ export default async function ProductDetailPage({ params, searchParams }) {
                   product={product}
                   user={user}
                   utmData={utmData}
+                  metaPixelId={metaPixelId}
                   className='inline-flex items-center justify-center gap-2 rounded-full bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-500 transition w-full sm:w-auto'
                 />
                 <a
@@ -158,6 +162,7 @@ export default async function ProductDetailPage({ params, searchParams }) {
                   product={product}
                   user={user}
                   utmData={utmData}
+                  metaPixelId={metaPixelId}
                   className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-semibold text-white hover:bg-slate-800 transition'
                   label='Beli Sekarang'
                 />

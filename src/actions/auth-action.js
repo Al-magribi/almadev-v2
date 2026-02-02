@@ -157,8 +157,12 @@ export async function signinUser(prevState, formData) {
     });
 
     // 6. TENTUKAN REDIRECT URL BERDASARKAN ROLE
-    // Default ke /student jika role tidak spesifik
-    const redirectUrl = user.role === "admin" ? "/admin" : "/student";
+    let redirectUrl = "/student";
+    if (user.role === "admin") {
+      redirectUrl = "/admin";
+    } else if (user.role === "bootcamp") {
+      redirectUrl = "/online-bootcamp";
+    }
 
     return {
       success: true,

@@ -14,6 +14,7 @@ export async function proxy(request) {
   // Karena "selalu dimulai dengan", kita cukup cek prefix-nya saja:
   const isAdminRoute = pathname.startsWith("/admin");
   const isStudentRoute = pathname.startsWith("/student");
+  const isBootcampRoute = pathname.startsWith("/online-bootcamp");
 
   // --- 2. VALIDASI TOKEN ---
   let user = null; // Menyimpan data user jika token valid
@@ -35,6 +36,8 @@ export async function proxy(request) {
   if (isAuthRoute && user) {
     if (user.role === "admin") {
       return NextResponse.redirect(new URL("/admin", request.url));
+    } else if (user.role === "bootcamp") {
+      return NextResponse.redirect(new URL("/online-bootcamp", request.url));
     } else {
       return NextResponse.redirect(new URL("/student", request.url));
     }
@@ -42,7 +45,7 @@ export async function proxy(request) {
 
   // KASUS B: User BELUM LOGIN, tapi mencoba akses halaman PROTECTED
   // (Buka /admin atau /student tanpa token) -> Redirect ke Signin
-  if ((isAdminRoute || isStudentRoute) && !user) {
+  if ((isAdminRoute || isStudentRoute || isBootcampRoute) && !user) {
     const loginUrl = new URL("/signin", request.url);
     // (Opsional) Simpan URL tujuan agar nanti bisa redirect balik
     loginUrl.searchParams.set("callbackUrl", pathname);
@@ -53,12 +56,24 @@ export async function proxy(request) {
   if (user) {
     // 1. Student mencoba akses Admin -> Tendang ke /student
     if (isAdminRoute && user.role !== "admin") {
-      return NextResponse.redirect(new URL("/student", request.url));
+      const target =
+        user.role === "bootcamp" ? "/online-bootcamp" : "/student";
+      return NextResponse.redirect(new URL(target, request.url));
     }
 
     // 2. Admin mencoba akses Student -> Tendang ke /admin
-    if (isStudentRoute && user.role === "admin") {
-      return NextResponse.redirect(new URL("/admin", request.url));
+    if (isStudentRoute) {
+      if (user.role === "admin") {
+        return NextResponse.redirect(new URL("/admin", request.url));
+      }
+      if (user.role === "bootcamp") {
+        return NextResponse.redirect(new URL("/online-bootcamp", request.url));
+      }
+    }
+
+    if (isBootcampRoute && user.role !== "bootcamp") {
+      const target = user.role === "admin" ? "/admin" : "/student";
+      return NextResponse.redirect(new URL(target, request.url));
     }
   }
 

@@ -10,6 +10,7 @@ export default function ProductCheckoutButton({
   utmData,
   label = "Beli Sekarang",
   className = "",
+  metaPixelId,
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -33,6 +34,7 @@ export default function ProductCheckoutButton({
           itemType='Product'
           planName='Produk Digital'
           utmData={utmData}
+          metaPixelId={metaPixelId}
         />
       )}
     </>

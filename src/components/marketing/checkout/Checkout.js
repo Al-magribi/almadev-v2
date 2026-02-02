@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShieldCheck,
@@ -16,11 +16,13 @@ import {
 import { formatRupiah } from "@/lib/client-utils";
 import { createPayment } from "@/actions/transaction-actions";
 import { useRouter } from "next/navigation";
+import { initFacebookPixel, trackFacebookEvent } from "@/lib/facebook-pixel";
 
-export default function Checkout({ item, user, utm }) {
+export default function Checkout({ item, user, utm, metaPixelId }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const hasTrackedCheckout = useRef(false);
   const itemType = item?.itemType || "Course";
   const planLabel =
     item?.planName || (itemType === "Product" ? "Produk Digital" : "Online Course");
@@ -74,6 +76,33 @@ export default function Checkout({ item, user, utm }) {
       router.replace("/");
     }
   }, [router]);
+
+  useEffect(() => {
+    if (!item || hasTrackedCheckout.current) return;
+    const pixelId = String(metaPixelId || "").trim();
+    if (!pixelId) return;
+    const storageKey = `fb_initiate_checkout_${String(item._id || "")}`;
+    try {
+      if (sessionStorage.getItem(storageKey) === "1") {
+        hasTrackedCheckout.current = true;
+        return;
+      }
+    } catch {}
+
+    initFacebookPixel(pixelId);
+    trackFacebookEvent("InitiateCheckout", {
+      content_ids: [String(item._id || "")],
+      content_name: item.name,
+      content_type: itemType === "Product" ? "product" : "course",
+      currency: "IDR",
+      value: Number(item.price || 0),
+      num_items: 1,
+    });
+    try {
+      sessionStorage.setItem(storageKey, "1");
+    } catch {}
+    hasTrackedCheckout.current = true;
+  }, [item, itemType, metaPixelId]);
 
   const handleCheckout = async () => {
     setLoading(true);

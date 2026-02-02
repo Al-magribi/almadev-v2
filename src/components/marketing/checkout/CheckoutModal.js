@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, User, Mail, Phone, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { initFacebookPixel, trackFacebookEvent } from "@/lib/facebook-pixel";
 
 export default function CheckoutModal({
   isOpen,
@@ -12,8 +13,10 @@ export default function CheckoutModal({
   itemId,
   itemType,
   planData,
+  courseData,
   planName,
   utmData,
+  metaPixelId,
 }) {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -40,6 +43,25 @@ export default function CheckoutModal({
       planData?.name ||
       planName ||
       (normalizedType === "Product" ? "Produk Digital" : "Online Course");
+
+    const pixelId = String(metaPixelId || "").trim();
+    if (pixelId) {
+      const storageKey = `fb_initiate_checkout_${String(effectiveId || "")}`;
+      try {
+        if (sessionStorage.getItem(storageKey) !== "1") {
+          initFacebookPixel(pixelId);
+          trackFacebookEvent("InitiateCheckout", {
+            content_ids: [String(effectiveId || "")],
+            content_name: selectedPlanName,
+            content_type: normalizedType === "Product" ? "product" : "course",
+            currency: "IDR",
+            value: Number(planData?.price ?? courseData?.price ?? 0),
+            num_items: 1,
+          });
+          sessionStorage.setItem(storageKey, "1");
+        }
+      } catch {}
+    }
 
     // Construct Query Params
     const params = new URLSearchParams();

@@ -9,7 +9,8 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     category: { type: String, required: true },
     status: { type: String, required: true, default: "draft" },
-    fileLink: { type: String },
+    fileLink: { type: String }, // legacy link (optional)
+    filePath: { type: String }, // uploaded file path
     videoLink: { type: String },
     // Menambahkan field untuk menyimpan hasil perhitungan
     rating: { type: Number, default: 0 },

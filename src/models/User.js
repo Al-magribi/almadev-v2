@@ -8,7 +8,11 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, trim: true, unique: true },
     phone: { type: String, required: true, trim: true, unique: true },
     password: { type: String, required: true, trim: true },
-    role: { type: String, enum: ["admin", "student"], default: "student" },
+    role: {
+      type: String,
+      enum: ["admin", "student", "bootcamp"],
+      default: "student",
+    },
 
     // Untuk flow checkout auto-create account
     isActive: { type: Boolean, default: true },

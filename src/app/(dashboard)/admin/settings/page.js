@@ -38,6 +38,7 @@ export default function AdminSetting({ req }) {
     websiteLogo: "",
     websiteFavicon: "",
     domain: "",
+    youtubeRoadmapLink: "",
     seoTitle: "",
     seoDescription: "",
     seoKeywords: "",
@@ -84,17 +85,32 @@ export default function AdminSetting({ req }) {
 
   // Handle Input Change
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value, type, checked, files } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]:
+        type === "checkbox"
+          ? checked
+          : type === "file"
+            ? files?.[0] || ""
+            : value,
     }));
   };
 
   // Simpan Settings
   const handleSave = () => {
     startTransition(async () => {
-      const result = await updateSettings(formData);
+      const payload = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (value instanceof File) {
+          if (value.size > 0) payload.append(key, value);
+          return;
+        }
+        payload.append(key, String(value));
+      });
+
+      const result = await updateSettings(payload);
       if (result.success) {
         setNotification({
           type: "success",

@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }) {
     redirect("/signin");
   }
   if (currentUser.role !== "admin") {
-    redirect("/student");
+    redirect(currentUser.role === "bootcamp" ? "/online-bootcamp" : "/student");
   }
 
   // Render Client Layout dan oper datanya

@@ -17,7 +17,7 @@ const transactionSchema = new mongoose.Schema(
     // =========================
     type: {
       type: String,
-      enum: ["Course", "Product"],
+      enum: ["Course", "Product", "Bootcamp"],
       required: true,
       index: true,
     },
@@ -59,7 +59,7 @@ const transactionSchema = new mongoose.Schema(
     },
     itemType: {
       type: String,
-      enum: ["Course", "Product"],
+      enum: ["Course", "Product", "BootcampParticipant"],
       required: true,
       index: true,
     },
