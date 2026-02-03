@@ -1,6 +1,8 @@
 import { activateUser } from "@/actions/auth-action";
 import ActivateClient from "./ActivateClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function ActivatePage({ searchParams }) {
   const resolvedParams = await searchParams;
   const token = resolvedParams?.token;
