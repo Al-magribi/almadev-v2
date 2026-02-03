@@ -1,8 +1,8 @@
-"use server";
-
 import { getUserProfile } from "@/actions/user-actions";
 import StudentShell from "@/components/student/StudentShell";
 import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function StudentLayout({ children }) {
   const { success, data: user } = await getUserProfile();

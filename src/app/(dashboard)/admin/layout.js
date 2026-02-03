@@ -2,6 +2,8 @@ import { getUserProfile } from "@/actions/user-actions";
 import AdminClientLayout from "@/components/admin/AdminClientLayout"; // Import komponen baru tadi
 import { redirect } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 // Hapus "use client" agar bisa jadi async Server Component
 export default async function AdminLayout({ children }) {
   // Fetch data di sisi server

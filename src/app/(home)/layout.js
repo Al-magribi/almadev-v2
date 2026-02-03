@@ -2,6 +2,8 @@ import Navbar from "@/components/shared/Navbar";
 import Footer from "@/components/shared/Footer";
 import { ThemeProvider } from "next-themes"; // Import langsung dari library jika provider Anda wrapper
 
+export const dynamic = "force-dynamic";
+
 export default function HomeLayout({ children }) {
   return (
     // forcedTheme="light" akan memaksa seluruh anak komponen menjadi light mode

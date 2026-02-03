@@ -1,8 +1,8 @@
-"use server";
-
 import { getUserProfile } from "@/actions/user-actions";
 import BootcampShell from "@/components/bootcamp/BootcampShell";
 import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function BootcampLayout({ children }) {
   const { success, data: user } = await getUserProfile();
