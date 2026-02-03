@@ -4,6 +4,8 @@ import { Fira_Sans, Fira_Code } from "next/font/google";
 import { ThemeProvider } from "@/components/provider/ThemeProvider"; // Pastikan path import benar
 import { getSettings } from "@/actions/setting-actions";
 
+export const dynamic = "force-dynamic";
+
 const firaSans = Fira_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
