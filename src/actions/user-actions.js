@@ -12,7 +12,7 @@ import { getCurrentUser } from "@/lib/auth-service";
 export async function getStudents() {
   try {
     await dbConnect();
-    const students = await User.find({ role: "student" })
+    const students = await User.find({ role: { $in: ["student", "bootcamp"] } })
       .select("-password -resetPasswordToken -activationCode -__v")
       .sort({ createdAt: -1 })
       .lean();
@@ -22,10 +22,11 @@ export async function getStudents() {
     const studentIds = students.map((s) => s._id);
     const transactions = await Transaction.find({
       userId: { $in: studentIds },
-      status: "completed",
     })
-      .populate("item", "name type price image")
-      .select("userId transactionCode price status createdAt itemType itemId")
+      .populate("item", "name title registrationFee classFee")
+      .select(
+        "userId transactionCode price status createdAt itemType itemId itemName",
+      )
       .sort({ createdAt: -1 })
       .lean();
 
@@ -34,15 +35,25 @@ export async function getStudents() {
         (t) => t.userId.toString() === student._id.toString(),
       );
 
-      const purchaseHistory = userTransactions.map((t) => ({
-        id: t._id.toString(),
-        transactionCode: t.transactionCode,
-        itemName: t.item ? t.item.name : "Item tidak ditemukan",
-        itemType: t.itemType,
-        price: t.price,
-        status: t.status,
-        date: t.createdAt.toISOString(),
-      }));
+      const purchaseHistory = userTransactions.map((t) => {
+        const fallbackName = t.itemName || "Item tidak ditemukan";
+        const isBootcamp = t.itemType === "BootcampParticipant";
+        const itemName = isBootcamp
+          ? "Bootcamp"
+          : t.item?.name || t.item?.title || t.itemName || fallbackName;
+        const itemType =
+          isBootcamp ? "Bootcamp" : t.itemType;
+
+        return {
+          id: t._id.toString(),
+          transactionCode: t.transactionCode,
+          itemName,
+          itemType,
+          price: t.price,
+          status: t.status,
+          date: t.createdAt.toISOString(),
+        };
+      });
 
       return {
         id: student._id.toString(),
@@ -53,8 +64,13 @@ export async function getStudents() {
           avatar: student.avatar,
         },
         stats: {
-          totalSpent: purchaseHistory.reduce((acc, cur) => acc + cur.price, 0),
-          totalPurchases: purchaseHistory.length,
+          totalSpent: purchaseHistory.reduce(
+            (acc, cur) => (cur.status === "completed" ? acc + cur.price : acc),
+            0,
+          ),
+          totalPurchases: purchaseHistory.filter(
+            (item) => item.status === "completed",
+          ).length,
         },
         joinedAt: student.createdAt.toISOString(),
         purchases: purchaseHistory,
@@ -116,6 +132,9 @@ export async function updateUserProfile(prevState, formData) {
       title: formData.get("title"), // Opsional (Admin)
       bio: formData.get("bio"), // Opsional (Admin)
       avatar: formData.get("avatar"), // File object atau String URL
+      bankName: formData.get("bankName"),
+      accountNumber: formData.get("accountNumber"),
+      accountName: formData.get("accountName"),
     };
 
     // 3. Validasi dengan Zod
@@ -184,10 +203,17 @@ export async function updateUserProfile(prevState, formData) {
       };
     }
 
+    currentUser.bankInfo = {
+      bankName: rawData.bankName || null,
+      accountNumber: rawData.accountNumber || null,
+      accountName: rawData.accountName || null,
+    };
+
     await currentUser.save();
 
     revalidatePath("/account"); // Refresh cache halaman akun
     revalidatePath("/student/profile");
+    revalidatePath("/online-bootcamp/profile");
     return { success: true, message: "Profil berhasil diperbarui!" };
   } catch (error) {
     console.error("Update Error:", error);

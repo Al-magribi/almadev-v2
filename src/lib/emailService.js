@@ -65,6 +65,9 @@ function paymentEmailTemplate({
   itemName,
   amount,
   statusUrl,
+  isBootcamp = false,
+  loginEmail,
+  loginPhone,
 }) {
   const formatCurrency = (n) =>
     new Intl.NumberFormat("id-ID", {
@@ -107,6 +110,8 @@ function paymentEmailTemplate({
   };
 
   const meta = statusMap[status] || statusMap.pending;
+  const showBootcampLoginInfo =
+    status === "completed" && isBootcamp && (loginEmail || loginPhone);
 
   return `
   <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:20px;background:#ffffff">
@@ -151,6 +156,37 @@ function paymentEmailTemplate({
               Lihat Status Pembayaran
             </a>
           </div>
+        `
+            : ""
+        }
+
+        ${
+          showBootcampLoginInfo
+            ? `
+        <div style="margin-top:16px;border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#ffffff">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:8px">Akses Akun Bootcamp</div>
+          <div style="font-size:14px;color:#111827">
+            Akun bootcamp kamu sudah aktif. Untuk login gunakan:
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;color:#111827;margin-top:8px">
+            ${
+              loginEmail
+                ? `<tr>
+                  <td style="padding:6px 0;color:#6b7280">Email</td>
+                  <td style="padding:6px 0;text-align:right;font-weight:700">${loginEmail}</td>
+                </tr>`
+                : ""
+            }
+            ${
+              loginPhone
+                ? `<tr>
+                  <td style="padding:6px 0;color:#6b7280">WhatsApp</td>
+                  <td style="padding:6px 0;text-align:right;font-weight:700">${loginPhone}</td>
+                </tr>`
+                : ""
+            }
+          </table>
+        </div>
         `
             : ""
         }
@@ -263,6 +299,9 @@ export async function sendPaymentEmail({
   transactionId,
   itemName,
   amount,
+  isBootcamp,
+  loginEmail,
+  loginPhone,
 }) {
   if (!to) throw new Error("Email penerima (to) wajib diisi");
   if (!transactionId) throw new Error("transactionId wajib diisi");
@@ -299,6 +338,9 @@ export async function sendPaymentEmail({
       itemName,
       amount,
       statusUrl,
+      isBootcamp,
+      loginEmail,
+      loginPhone,
     }),
   };
 

@@ -82,7 +82,7 @@ export const productSchema = z.object({
   price: z.coerce.number().min(0, "Harga tidak boleh negatif"), // coerce mengubah string input ke number
   category: z.string().min(1, "Kategori harus dipilih"),
   status: z.enum(["draft", "published", "archived"]).default("draft"),
-  fileLink: z.string().optional(),
+  fileLink: z.string().optional().nullable().or(z.literal("")),
   filePath: z
     .any()
     .refine((file) => {
@@ -130,6 +130,11 @@ export const profileSchema = z.object({
   company: z.string().optional().nullable(),
   title: z.string().optional().nullable(),
   bio: z.string().max(500, "Bio maksimal 500 karakter").optional().nullable(),
+
+  // Bank info (optional)
+  bankName: z.string().optional().nullable(),
+  accountNumber: z.string().optional().nullable(),
+  accountName: z.string().optional().nullable(),
 
   // Avatar Validation
   avatar: z

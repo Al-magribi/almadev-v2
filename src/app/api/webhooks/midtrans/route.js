@@ -65,7 +65,7 @@ export async function POST(req) {
 
     // ambil user untuk email/nama (karena trx tidak menyimpan customerEmail/customerName)
     const user = await User.findById(trx.userId)
-      .select("name fullName email")
+      .select("name fullName email phone")
       .lean();
     const customerName = user?.name || user?.fullName || "Pelanggan";
     const customerEmail = user?.email;
@@ -84,6 +84,7 @@ export async function POST(req) {
     // 3) Handle statuses
     // =========================
     if (trxStatus === "settlement" || trxStatus === "capture") {
+      const wasCompleted = trx.status === "completed";
       // mark completed
       await Transaction.updateOne(
         { _id: trx._id },
@@ -110,7 +111,7 @@ export async function POST(req) {
       }
 
       // kirim email sukses
-      if (customerEmail) {
+      if (customerEmail && !wasCompleted) {
         await sendPaymentEmail({
           to: customerEmail,
           name: customerName,
@@ -118,6 +119,9 @@ export async function POST(req) {
           transactionId: trx.transactionCode,
           itemName,
           amount: trx.price,
+          isBootcamp: trx.itemType === "BootcampParticipant",
+          loginEmail: customerEmail,
+          loginPhone: user?.phone,
         });
       }
     } else if (trxStatus === "pending") {

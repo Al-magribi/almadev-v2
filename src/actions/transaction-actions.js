@@ -39,10 +39,11 @@ export async function getAllTransactions() {
 
   try {
     const transactions = await Transaction.find()
-      .populate({ path: "userId", select: "name email avatar" })
+      .populate({ path: "userId", select: "name email phone avatar role" })
       .populate({
         path: "item",
-        select: "name title image price category type",
+        select:
+          "name title image price category type email phone status registrationFee classFee midtransStatus transactionCode",
       })
       .sort({ createdAt: -1 })
       .lean();
@@ -149,6 +150,7 @@ export async function syncTransactionStatus(orderId) {
     }
 
     const trxStatus = statusData.transaction_status;
+    const previousStatus = trx.status;
 
     let normalizedStatus = trx.status;
     if (trxStatus === "settlement" || trxStatus === "capture") {
@@ -201,7 +203,7 @@ export async function syncTransactionStatus(orderId) {
 
       if (trx.status !== "completed") {
         const user = await User.findById(trx.userId)
-          .select("name fullName email")
+          .select("name fullName email phone")
           .lean();
         const customerName = user?.name || user?.fullName || "Pelanggan";
         const customerEmail = user?.email;
@@ -215,6 +217,9 @@ export async function syncTransactionStatus(orderId) {
             transactionId: trx.transactionCode,
             itemName,
             amount: trx.price,
+            isBootcamp: trx.itemType === "BootcampParticipant",
+            loginEmail: customerEmail,
+            loginPhone: user?.phone,
           });
         }
       }
@@ -236,6 +241,36 @@ export async function syncTransactionStatus(orderId) {
         { _id: trx.itemId },
         { $set: { status: nextStatus, midtransStatus: trxStatus } },
       );
+    }
+
+    const emailableStatuses = new Set([
+      "pending",
+      "failed",
+      "cancelled",
+      "expired",
+    ]);
+    if (
+      normalizedStatus !== "completed" &&
+      normalizedStatus !== previousStatus &&
+      emailableStatuses.has(normalizedStatus)
+    ) {
+      const user = await User.findById(trx.userId)
+        .select("name fullName email")
+        .lean();
+      const customerName = user?.name || user?.fullName || "Pelanggan";
+      const customerEmail = user?.email;
+      const itemName = trx.itemName || "Pesanan Anda";
+
+      if (customerEmail) {
+        await sendPaymentEmail({
+          to: customerEmail,
+          name: customerName,
+          status: normalizedStatus,
+          transactionId: trx.transactionCode,
+          itemName,
+          amount: trx.price,
+        });
+      }
     }
 
     return {

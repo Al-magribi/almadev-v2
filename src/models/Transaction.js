@@ -63,6 +63,13 @@ const transactionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    // Optional: detail pembayaran bootcamp (pendaftaran / kelas)
+    bootcampFeeType: {
+      type: String,
+      enum: ["registration", "class"],
+      default: null,
+      index: true,
+    },
 
     // =========================
     // User who made the transaction

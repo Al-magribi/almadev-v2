@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import archiver from "archiver"; // Wajib: npm install archiver
+import { POST as handleMidtransWebhook } from "@/app/api/webhooks/midtrans/route";
 
 export async function GET() {
   try {
@@ -37,4 +38,8 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+export async function POST(req) {
+  return handleMidtransWebhook(req);
 }

@@ -3,7 +3,7 @@ import { getSettings } from "@/actions/setting-actions";
 import { getTransactionByCode } from "@/actions/transaction-actions";
 
 export default async function StatusPage({ searchParams }) {
-  const params = searchParams || {};
+  const params = (await searchParams) || {};
   const orderId = params.order_id;
 
   const settings = await getSettings();

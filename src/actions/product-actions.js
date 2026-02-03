@@ -61,6 +61,8 @@ export async function saveProduct(prevState, formData) {
       videoLink: formData.get("videoLink"),
       image: formData.get("image"), // Bisa File atau String (jika tidak diubah)
     };
+    const hasFileUpload =
+      rawData.filePath instanceof File && rawData.filePath.size > 0;
 
     const id = formData.get("id"); // Jika ada ID, berarti Edit
 
@@ -94,6 +96,13 @@ export async function saveProduct(prevState, formData) {
       if (uploadedFile) uploadedFilePath = uploadedFile;
     } else if (typeof filePath === "string" && filePath.length > 0) {
       uploadedFilePath = filePath;
+    }
+    if (hasFileUpload && !uploadedFilePath) {
+      return {
+        success: false,
+        message:
+          "Upload file gagal. Periksa ukuran dan format file, lalu coba lagi.",
+      };
     }
 
     // 4. Simpan ke Database

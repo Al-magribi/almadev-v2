@@ -28,6 +28,7 @@ export default function BootcampRegistrationModal({
       name: formData.name,
       email: formData.email,
       phone: formData.phone,
+      bootcampFeeType: "registration",
     });
 
     if (res?.success && res.redirectUrl) {

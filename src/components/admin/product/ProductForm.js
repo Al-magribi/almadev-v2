@@ -79,6 +79,7 @@ export default function ProductForm({ isOpen, onClose, initialData = null }) {
       toast.success(result.message);
     } else {
       if (result.errors) {
+        console.log(result.errors);
         setErrors(result.errors);
       } else {
         toast.error(result.message);
@@ -131,8 +132,12 @@ export default function ProductForm({ isOpen, onClose, initialData = null }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className='p-4 sm:p-6 space-y-6'>
-          <div className='grid grid-cols-1 gap-6 lg:grid-cols-[1.05fr_0.95fr]'>
+        <form
+          onSubmit={handleSubmit}
+          encType='multipart/form-data'
+          className='p-4 sm:p-6 space-y-6'
+        >
+          <div className='grid grid-cols-1 gap-6 '>
             <div className='space-y-5 sm:space-y-6 rounded-2xl border border-gray-100 bg-gray-50/60 p-4 sm:p-5'>
               <div className='space-y-2'>
                 <div className='flex items-center gap-2 text-sm font-semibold text-gray-900'>
@@ -234,7 +239,7 @@ export default function ProductForm({ isOpen, onClose, initialData = null }) {
                 </label>
                 <textarea
                   name='description'
-                  rows='3'
+                  rows='8'
                   defaultValue={initialData?.description}
                   className='w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
                   placeholder='Jelaskan produk anda...'
@@ -244,39 +249,35 @@ export default function ProductForm({ isOpen, onClose, initialData = null }) {
                 )}
               </div>
 
-              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
-                <div className='space-y-1'>
-                  <label className='text-sm font-medium text-gray-700'>
-                    Link Video Preview (Opsional)
-                  </label>
-                  <div className='relative'>
-                    <PlayCircle className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400' />
-                    <input
-                      type='text'
-                      name='videoLink'
-                      defaultValue={initialData?.videoLink}
-                      className='w-full rounded-xl border border-gray-200 bg-white px-10 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
-                      placeholder='YouTube URL'
-                    />
-                  </div>
-                </div>
-                <div className='space-y-1'>
-                  <label className='text-sm font-medium text-gray-700'>
-                    Catatan Internal
-                  </label>
-                  <textarea
-                    name='note'
-                    rows='2'
-                    defaultValue={initialData?.note}
-                    className='w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
-                    placeholder='Catatan khusus admin...'
-                  ></textarea>
+              <div className='space-y-1'>
+                <label className='text-sm font-medium text-gray-700'>
+                  Catatan Internal
+                </label>
+                <textarea
+                  name='note'
+                  rows='10'
+                  defaultValue={initialData?.note}
+                  className='w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
+                  placeholder='Catatan khusus admin...'
+                ></textarea>
+              </div>
+
+              <div className='space-y-1'>
+                <label className='text-sm font-medium text-gray-700'>
+                  Link Video Preview (Opsional)
+                </label>
+                <div className='relative'>
+                  <PlayCircle className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400' />
+                  <input
+                    type='text'
+                    name='videoLink'
+                    defaultValue={initialData?.videoLink}
+                    className='w-full rounded-xl border border-gray-200 bg-white px-10 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100'
+                    placeholder='YouTube URL'
+                  />
                 </div>
               </div>
-            </div>
 
-            <div className='space-y-6'>
-              {/* Image Upload */}
               <div className='space-y-2'>
                 <label className='block text-sm font-medium text-gray-700'>
                   Gambar Produk
@@ -355,7 +356,9 @@ export default function ProductForm({ isOpen, onClose, initialData = null }) {
                         />
                       </label>
                       <span className='text-xs text-gray-500'>
-                        {fileInfo?.name ? "File siap diunggah" : "Belum dipilih"}
+                        {fileInfo?.name
+                          ? "File siap diunggah"
+                          : "Belum dipilih"}
                       </span>
                     </div>
                     <div className='rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600'>

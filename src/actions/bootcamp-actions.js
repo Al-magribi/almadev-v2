@@ -71,9 +71,7 @@ export async function getBootcampExercises() {
   }
 
   await dbConnect();
-  const items = await BootcampExercise.find()
-    .sort({ updatedAt: -1 })
-    .lean();
+  const items = await BootcampExercise.find().sort({ updatedAt: -1 }).lean();
 
   const data = serialize(items).map((item) => ({
     id: String(item._id),
@@ -166,6 +164,7 @@ export async function createBootcampPayment({
   name,
   email,
   phone,
+  bootcampFeeType = "registration",
   utmSource,
   utmMedium,
   utmCampaign,
@@ -246,6 +245,14 @@ export async function createBootcampPayment({
 
     const orderId = `BOOTCAMP-${nanoid()}`;
     const registrationFee = 100000;
+    const classFee = 3000000;
+    const feeType =
+      bootcampFeeType === "class" ? "class" : "registration";
+    const feeAmount = feeType === "class" ? classFee : registrationFee;
+    const feeLabel =
+      feeType === "class"
+        ? "Bootcamp - Biaya Kelas"
+        : "Bootcamp - Biaya Pendaftaran";
 
     const participant = await BootcampParticipant.create({
       userId: user._id,
@@ -254,7 +261,7 @@ export async function createBootcampPayment({
       phone: safePhone,
       status: "pending",
       registrationFee,
-      classFee: 3000000,
+      classFee,
       transactionCode: orderId,
       midtransStatus: "pending",
     });
@@ -265,10 +272,11 @@ export async function createBootcampPayment({
       type: "Bootcamp",
       itemId: participant._id,
       itemType: "BootcampParticipant",
-      itemName: "Bootcamp - Biaya Pendaftaran",
+      itemName: feeLabel,
       userId: user._id,
-      price: registrationFee,
+      price: feeAmount,
       status: "pending",
+      bootcampFeeType: feeType,
       utmSource: utmSource || "direct",
       utmMedium: utmMedium || null,
       utmCampaign: utmCampaign || null,
@@ -283,7 +291,9 @@ export async function createBootcampPayment({
       "base64",
     );
 
-    const finishUrl = `${settings.domain}/signin`;
+    const finishUrl = `${settings.domain}/status?order_id=${encodeURIComponent(
+      orderId,
+    )}`;
 
     const midtransResponse = await fetch(`${baseUrl}/snap/v1/transactions`, {
       method: "POST",
@@ -295,7 +305,7 @@ export async function createBootcampPayment({
       body: JSON.stringify({
         transaction_details: {
           order_id: orderId,
-          gross_amount: registrationFee,
+          gross_amount: feeAmount,
         },
         customer_details: {
           first_name: safeName,
@@ -305,9 +315,9 @@ export async function createBootcampPayment({
         item_details: [
           {
             id: String(participant._id),
-            price: registrationFee,
+            price: feeAmount,
             quantity: 1,
-            name: "Biaya Pendaftaran Bootcamp",
+            name: feeLabel,
           },
         ],
         callbacks: {
@@ -349,8 +359,8 @@ export async function createBootcampPayment({
       name: safeName,
       status: "pending",
       transactionId: orderId,
-      itemName: "Bootcamp - Biaya Pendaftaran",
-      amount: registrationFee,
+      itemName: feeLabel,
+      amount: feeAmount,
     });
 
     return {

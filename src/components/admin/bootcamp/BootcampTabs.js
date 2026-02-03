@@ -5,15 +5,16 @@ import { NotebookPen, Users } from "lucide-react";
 import BootcampParticipantsTable from "@/components/admin/bootcamp/BootcampParticipantsTable";
 import BootcampExerciseManager from "@/components/admin/bootcamp/BootcampExerciseManager";
 
-const tabs = [
-  { id: "participants", label: "Peserta", icon: Users },
-  { id: "exercises", label: "Latihan", icon: NotebookPen },
-];
+export default function BootcampTabs({ participants = [], exercises = [] }) {
+  const tabs = [
+    {
+      id: "participants",
+      label: `Peserta (${participants.length})`,
+      icon: Users,
+    },
+    { id: "exercises", label: "Latihan", icon: NotebookPen },
+  ];
 
-export default function BootcampTabs({
-  participants = [],
-  exercises = [],
-}) {
   const [activeTab, setActiveTab] = useState(tabs[0].id);
 
   return (

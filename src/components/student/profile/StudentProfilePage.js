@@ -7,6 +7,7 @@ import {
   User,
   Mail,
   Phone,
+  Landmark,
   Save,
   Shield,
   Lock,
@@ -195,6 +196,57 @@ export default function StudentProfilePage({ user }) {
                   />
                 </div>
               </label>
+            </div>
+
+            <div className='mt-8 border-t border-zinc-200 pt-6 dark:border-zinc-800'>
+              <div className='flex items-center gap-3'>
+                <div className='rounded-2xl border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-950'>
+                  <Landmark className='h-5 w-5 text-zinc-700 dark:text-zinc-200' />
+                </div>
+                <div>
+                  <h2 className='text-base font-semibold text-zinc-900 dark:text-zinc-100'>
+                    Data Bank
+                  </h2>
+                  <p className='text-xs text-zinc-500 dark:text-zinc-400'>
+                    Informasi rekening untuk kebutuhan administrasi.
+                  </p>
+                </div>
+              </div>
+
+              <div className='mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3'>
+                <label className='flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-400'>
+                  Nama Bank
+                  <input
+                    name='bankName'
+                    type='text'
+                    defaultValue={user?.bankInfo?.bankName || ""}
+                    placeholder='Contoh: BCA'
+                    className='h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none focus:border-zinc-300 focus:ring-4 focus:ring-zinc-200/60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-700 dark:focus:ring-zinc-700/60'
+                  />
+                </label>
+
+                <label className='flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-400'>
+                  Nomor Rekening
+                  <input
+                    name='accountNumber'
+                    type='text'
+                    defaultValue={user?.bankInfo?.accountNumber || ""}
+                    placeholder='Nomor rekening'
+                    className='h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none focus:border-zinc-300 focus:ring-4 focus:ring-zinc-200/60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-700 dark:focus:ring-zinc-700/60'
+                  />
+                </label>
+
+                <label className='flex flex-col gap-2 text-sm text-zinc-600 dark:text-zinc-400'>
+                  Atas Nama
+                  <input
+                    name='accountName'
+                    type='text'
+                    defaultValue={user?.bankInfo?.accountName || ""}
+                    placeholder='Nama pemilik rekening'
+                    className='h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none focus:border-zinc-300 focus:ring-4 focus:ring-zinc-200/60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-700 dark:focus:ring-zinc-700/60'
+                  />
+                </label>
+              </div>
             </div>
 
             <div className='mt-6'>
