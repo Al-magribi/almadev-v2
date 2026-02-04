@@ -68,6 +68,8 @@ function paymentEmailTemplate({
   isBootcamp = false,
   loginEmail,
   loginPhone,
+  showLoginInfo = false,
+  mustChangePassword = false,
 }) {
   const formatCurrency = (n) =>
     new Intl.NumberFormat("id-ID", {
@@ -110,8 +112,7 @@ function paymentEmailTemplate({
   };
 
   const meta = statusMap[status] || statusMap.pending;
-  const showBootcampLoginInfo =
-    status === "completed" && isBootcamp && (loginEmail || loginPhone);
+  const showAccountInfo = showLoginInfo && (loginEmail || loginPhone);
 
   return `
   <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:20px;background:#ffffff">
@@ -161,12 +162,18 @@ function paymentEmailTemplate({
         }
 
         ${
-          showBootcampLoginInfo
+          showAccountInfo
             ? `
         <div style="margin-top:16px;border:1px solid #e5e7eb;border-radius:10px;padding:14px;background:#ffffff">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:8px">Akses Akun Bootcamp</div>
+          <div style="font-size:13px;color:#6b7280;margin-bottom:8px">${
+            isBootcamp ? "Akses Akun Bootcamp" : "Info Akun"
+          }</div>
           <div style="font-size:14px;color:#111827">
-            Akun bootcamp kamu sudah aktif. Untuk login gunakan:
+            ${
+              isBootcamp
+                ? "Akun bootcamp kamu sudah dibuat. Untuk login gunakan:"
+                : "Akun kamu sudah dibuat untuk memproses transaksi ini. Untuk login gunakan:"
+            }
           </div>
           <table style="width:100%;border-collapse:collapse;font-size:14px;color:#111827;margin-top:8px">
             ${
@@ -186,6 +193,13 @@ function paymentEmailTemplate({
                 : ""
             }
           </table>
+          ${
+            mustChangePassword
+              ? `<p style="margin:10px 0 0;color:#b45309;font-size:12px">
+                  Demi keamanan, segera ganti password setelah berhasil login.
+                </p>`
+              : ""
+          }
         </div>
         `
             : ""
@@ -302,6 +316,8 @@ export async function sendPaymentEmail({
   isBootcamp,
   loginEmail,
   loginPhone,
+  showLoginInfo,
+  mustChangePassword,
 }) {
   if (!to) throw new Error("Email penerima (to) wajib diisi");
   if (!transactionId) throw new Error("transactionId wajib diisi");
@@ -341,6 +357,8 @@ export async function sendPaymentEmail({
       isBootcamp,
       loginEmail,
       loginPhone,
+      showLoginInfo,
+      mustChangePassword,
     }),
   };
 

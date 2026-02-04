@@ -17,9 +17,10 @@ export default function StatusPageClient({
   const params = searchParams || {};
   const orderId = params.order_id;
   const statusCode = params.status_code;
+  const trxStatus = transaction?.status;
 
-  const isSuccess = statusCode === "200";
-  const isPending = statusCode === "201";
+  const isSuccess = statusCode === "200" || trxStatus === "completed";
+  const isPending = statusCode === "201" || trxStatus === "pending";
   const hasTrackedPurchase = useRef(false);
 
   const getStatusLockKey = (id) =>

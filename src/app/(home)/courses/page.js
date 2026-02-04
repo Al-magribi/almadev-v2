@@ -7,6 +7,7 @@ import { formatRupiah } from "@/lib/client-utils";
 export const dynamic = "force-dynamic";
 
 export default async function CoursesPage() {
+  const utmQuery = "utm_source=website&utm_medium=landing&utm_campaign=direct";
   const courses = await getCourses();
 
   return (
@@ -43,7 +44,7 @@ export default async function CoursesPage() {
             {courses.map((course) => (
               <Link
                 key={course._id}
-                href={`/courses/${course._id}`}
+                href={`/courses/${course._id}?${utmQuery}`}
                 className='group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-2xl'
               >
                 <div className='relative aspect-[4/3] w-full overflow-hidden bg-slate-100'>

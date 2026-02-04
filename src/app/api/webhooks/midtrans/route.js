@@ -122,6 +122,8 @@ export async function POST(req) {
           isBootcamp: trx.itemType === "BootcampParticipant",
           loginEmail: customerEmail,
           loginPhone: user?.phone,
+          showLoginInfo: trx.autoCreatedUser,
+          mustChangePassword: trx.autoCreatedUser,
         });
       }
     } else if (trxStatus === "pending") {

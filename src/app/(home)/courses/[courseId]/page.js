@@ -1,12 +1,23 @@
 import { getCourseDetail } from "@/actions/course-actions";
-import Link from "next/link";
 import Image from "next/image"; // IMPORT PENTING: Untuk optimasi gambar LCP
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { formatRupiah } from "@/lib/client-utils";
 import { headers } from "next/headers";
+import dynamic from "next/dynamic";
 
-// Import Component Client yang baru dibuat
-import ProjectShowcase from "@/components/marketing/ProjectShowcase";
+// Lazy-load heavy client components to reduce initial JS and TBT
+const ProjectShowcase = dynamic(
+  () => import("@/components/marketing/ProjectShowcase"),
+  {
+    loading: () => (
+      <section className='py-20 bg-white'>
+        <div className='container mx-auto px-4 text-center text-slate-500'>
+          Memuat galeri proyek...
+        </div>
+      </section>
+    ),
+  }
+);
 
 import {
   PlayCircle,
@@ -18,15 +29,43 @@ import {
   HelpCircle,
   Quote,
 } from "lucide-react";
-import CurriculumList from "@/components/marketing/CurriculumList";
+const CurriculumList = dynamic(
+  () => import("@/components/marketing/CurriculumList"),
+  {
+    loading: () => (
+      <div className='text-center py-10 bg-white border border-dashed border-slate-300 rounded-xl text-slate-500'>
+        Memuat kurikulum...
+      </div>
+    ),
+  }
+);
 import { trackPageView } from "@/actions/dataview-actions";
 import { getCurrentUser } from "@/lib/auth-service";
-import PricingCardWrapper from "@/components/marketing/checkout/PricingCardWrapper";
+const PricingCardWrapper = dynamic(
+  () => import("@/components/marketing/checkout/PricingCardWrapper"),
+  {
+    loading: () => (
+      <button
+        disabled
+        className='block w-full py-4 text-center rounded-xl font-bold bg-slate-700 text-white opacity-70 cursor-not-allowed'
+      >
+        Memuat...
+      </button>
+    ),
+  }
+);
 import { getSettings } from "@/actions/setting-actions";
 
 // --- METADATA ---
-export async function generateMetadata({ params }) {
-  const { courseId } = await params;
+export async function generateMetadata({ params } = {}) {
+  const resolvedParams = params ? await params : null;
+  const courseId = resolvedParams?.courseId;
+  if (!courseId || courseId === "undefined") {
+    return {
+      title: "Detail Kursus",
+      description: "Belajar skill baru hari ini.",
+    };
+  }
   const data = await getCourseDetail(courseId);
   return {
     title:
@@ -39,22 +78,37 @@ export async function generateMetadata({ params }) {
 // --- KOMPONEN UTAMA (SERVER COMPONENT) ---
 export default async function CourseLandingPage({ params, searchParams }) {
   const { courseId } = await params;
+  if (!courseId || courseId === "undefined") {
+    return notFound();
+  }
   const sParams = await searchParams;
+  const utmDefaults = {
+    utm_source: "website",
+    utm_medium: "landing",
+    utm_campaign: "direct",
+  };
+  const hasUtm =
+    sParams?.utm_source || sParams?.utm_medium || sParams?.utm_campaign;
+  if (!hasUtm) {
+    const query = new URLSearchParams(utmDefaults).toString();
+    redirect(`/courses/${courseId}?${query}`);
+  }
 
-  const dataCourse = await getCourseDetail(courseId);
-  const data = JSON.parse(JSON.stringify(dataCourse));
-
-  const user = await getCurrentUser();
-  const settings = await getSettings();
+  const [data, user, settings] = await Promise.all([
+    getCourseDetail(courseId),
+    getCurrentUser(),
+    getSettings(),
+  ]);
   const metaPixelId = settings?.data?.metaPixelId || "";
 
   if (!data || !data.course) return notFound();
 
   const { course, landing } = data;
+  const courseIdForClient = course?._id?.toString?.() || "";
 
   if (data && data.course) {
     const headerList = await headers();
-    trackPageView({
+    void trackPageView({
       landingId: data.landing?._id,
       itemId: data.course._id,
       utmSource: sParams.utm_source,
@@ -102,8 +156,20 @@ export default async function CourseLandingPage({ params, searchParams }) {
   }));
 
   const testimonials = landing?.testimonials?.items || [];
-  const pricings = landing?.pricing?.items || [];
+  const pricings = (landing?.pricing?.items || []).map((plan) => ({
+    ...plan,
+    _id: plan?._id?.toString?.() || "",
+  }));
   const faqs = landing?.faqs?.items || [];
+
+  const safeUser = user
+    ? {
+        _id: user?._id?.toString?.() || "",
+        name: user?.name || "",
+        email: user?.email || "",
+        phone: user?.phone || "",
+      }
+    : null;
 
   // Hitung statistik (Fallback ke default jika kosong)
   const rating = landing?.instructor?.customRating || course.rating || 4.8;
@@ -414,9 +480,9 @@ export default async function CourseLandingPage({ params, searchParams }) {
 
                   <PricingCardWrapper
                     plan={plan}
-                    courseId={course._id}
+                    courseId={courseIdForClient}
                     planIndex={idx}
-                    user={user}
+                    user={safeUser}
                     courseData={{
                       name: course.name,
                       price: plan.price,

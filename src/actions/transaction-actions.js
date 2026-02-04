@@ -220,6 +220,8 @@ export async function syncTransactionStatus(orderId) {
             isBootcamp: trx.itemType === "BootcampParticipant",
             loginEmail: customerEmail,
             loginPhone: user?.phone,
+            showLoginInfo: trx.autoCreatedUser,
+            mustChangePassword: trx.autoCreatedUser,
           });
         }
       }
@@ -562,6 +564,10 @@ export async function createPayment(payload) {
       transactionId: orderId,
       itemName,
       amount: price,
+      loginEmail: email,
+      loginPhone: phone,
+      showLoginInfo: autoCreatedUser,
+      mustChangePassword: autoCreatedUser,
     });
 
     // ============ E) Redirect to Midtrans ============

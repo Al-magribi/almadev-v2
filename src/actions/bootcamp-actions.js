@@ -361,6 +361,11 @@ export async function createBootcampPayment({
       transactionId: orderId,
       itemName: feeLabel,
       amount: feeAmount,
+      isBootcamp: true,
+      loginEmail: safeEmail,
+      loginPhone: safePhone,
+      showLoginInfo: autoCreatedUser,
+      mustChangePassword: autoCreatedUser,
     });
 
     return {
