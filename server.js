@@ -1,6 +1,6 @@
-const { createServer } = require("http");
-const { parse } = require("url");
-const next = require("next");
+import "dotenv/config";
+import { createServer } from "http";
+import next from "next";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "0.0.0.0"; // pakai "localhost" jika mau persis artikel
@@ -12,8 +12,11 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
-      const { pathname, query } = parsedUrl;
+      const baseUrl = `http://${req.headers.host || `${hostname}:${port}`}`;
+      const requestUrl = new URL(req.url, baseUrl);
+      const { pathname } = requestUrl;
+      const query = Object.fromEntries(requestUrl.searchParams);
+      const parsedUrl = { pathname, query };
 
       if (pathname === "/a") {
         await app.render(req, res, "/a", query);
@@ -29,6 +32,7 @@ app.prepare().then(() => {
     }
   }).listen(port, (err) => {
     if (err) throw err;
+    console.log(dev);
     console.log(`> Ready on http://${hostname}:${port}`);
   });
 });
