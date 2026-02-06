@@ -1,10 +1,14 @@
-export const initFacebookPixel = (pixelId) => {
+export const initFacebookPixel = (pixelId, options = {}) => {
   if (typeof window === "undefined") return;
   const trimmedId = String(pixelId || "").trim();
   if (!trimmedId) return;
+  const shouldTrackPageView = options?.trackPageView !== false;
 
   if (window.fbq) {
     window.fbq("init", trimmedId);
+    if (shouldTrackPageView) {
+      window.fbq("track", "PageView");
+    }
     return;
   }
 
@@ -28,7 +32,9 @@ export const initFacebookPixel = (pixelId) => {
   /* eslint-enable */
 
   window.fbq("init", trimmedId);
-  window.fbq("track", "PageView");
+  if (shouldTrackPageView) {
+    window.fbq("track", "PageView");
+  }
 };
 
 export const trackFacebookEvent = (eventName, payload = {}) => {

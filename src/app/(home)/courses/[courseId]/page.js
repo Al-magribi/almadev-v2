@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { formatRupiah } from "@/lib/client-utils";
 import { headers } from "next/headers";
 import dynamic from "next/dynamic";
+import FacebookPixelPageView from "@/components/marketing/FacebookPixelPageView";
 
 // Lazy-load heavy client components to reduce initial JS and TBT
 const ProjectShowcase = dynamic(
@@ -178,6 +179,12 @@ export default async function CourseLandingPage({ params, searchParams }) {
 
   return (
     <div className='bg-white text-slate-900 font-sans selection:bg-violet-100 selection:text-violet-900'>
+      <FacebookPixelPageView
+        metaPixelId={metaPixelId}
+        contentIds={[courseIdForClient]}
+        contentName={course?.name}
+        contentType='course'
+      />
       {/* =========================================================
           SECTION 1: HERO (ATTENTION) - Optimized with next/image
       ========================================================== */}
@@ -545,3 +552,4 @@ export default async function CourseLandingPage({ params, searchParams }) {
     </div>
   );
 }
+

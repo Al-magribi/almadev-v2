@@ -2,16 +2,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowUpRight, Star } from "lucide-react";
 import { getCourses } from "@/actions/course-actions";
+import { getSettings } from "@/actions/setting-actions";
 import { formatRupiah } from "@/lib/client-utils";
+import FacebookPixelPageView from "@/components/marketing/FacebookPixelPageView";
 
 export const dynamic = "force-dynamic";
 
 export default async function CoursesPage() {
   const utmQuery = "utm_source=website&utm_medium=landing&utm_campaign=direct";
   const courses = await getCourses();
+  const settings = await getSettings();
+  const metaPixelId = settings?.data?.metaPixelId || "";
 
   return (
     <div className='bg-white text-slate-900'>
+      <FacebookPixelPageView metaPixelId={metaPixelId} />
       <section className='container mx-auto px-4 py-16 md:py-20'>
         <div className='flex flex-col gap-4 md:flex-row md:items-end md:justify-between'>
           <div>
