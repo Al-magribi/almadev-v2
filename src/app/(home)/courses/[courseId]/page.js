@@ -16,7 +16,7 @@ const ProjectShowcase = dynamic(
         </div>
       </section>
     ),
-  }
+  },
 );
 
 import {
@@ -37,7 +37,7 @@ const CurriculumList = dynamic(
         Memuat kurikulum...
       </div>
     ),
-  }
+  },
 );
 import { trackPageView } from "@/actions/dataview-actions";
 import { getCurrentUser } from "@/lib/auth-service";
@@ -52,7 +52,7 @@ const PricingCardWrapper = dynamic(
         Memuat...
       </button>
     ),
-  }
+  },
 );
 import { getSettings } from "@/actions/setting-actions";
 
@@ -218,7 +218,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
                   className='w-full sm:w-auto px-8 py-4 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl transition-all border border-slate-700 hover:border-slate-600 flex items-center justify-center gap-2'
                 >
                   <PlayCircle size={20} />
-                  Lihat Kurikulum
+                  Lihat Materi
                 </a>
               </div>
             </div>
@@ -531,11 +531,9 @@ export default async function CourseLandingPage({ params, searchParams }) {
       <div className='fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 md:hidden z-50 flex items-center justify-between shadow-[0_-5px_20px_rgba(0,0,0,0.05)]'>
         <div>
           <p className='text-xs text-slate-500 uppercase font-bold'>
-            Total Harga
+            Mulai dari
           </p>
-          <p className='text-lg font-bold text-violet-600'>
-            {course.price === 0 ? "Gratis" : formatRupiah(course.price)}
-          </p>
+          <p className='text-lg font-bold text-violet-600'>Rp 300.000</p>
         </div>
         <a
           href='#pricing'
