@@ -19,7 +19,11 @@ export default function TabLanding({
 
   const addPricingTier = () => {
     const newTier = {
+      __tempId: `pricing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: "Paket Baru",
+      subtitle: "",
+      promoText: "",
+      buttonText: "",
       price: 0,
       benefits: ["Akses Selamanya", "Update Materi"],
       isRecommended: false,
@@ -40,6 +44,26 @@ export default function TabLanding({
     } else {
       newItems[index][field] = value;
     }
+    setLanding((prev) => ({
+      ...prev,
+      pricing: { ...prev.pricing, items: newItems },
+    }));
+  };
+
+  const reorderPricingTiers = (sourceIndex, destinationIndex) => {
+    if (
+      sourceIndex === destinationIndex ||
+      sourceIndex < 0 ||
+      destinationIndex < 0
+    ) {
+      return;
+    }
+
+    const newItems = [...(landing.pricing?.items || [])];
+    const [movedItem] = newItems.splice(sourceIndex, 1);
+    if (!movedItem) return;
+    newItems.splice(destinationIndex, 0, movedItem);
+
     setLanding((prev) => ({
       ...prev,
       pricing: { ...prev.pricing, items: newItems },
@@ -212,6 +236,7 @@ export default function TabLanding({
           updatePricingTier={updatePricingTier}
           removePricingTier={removePricingTier}
           toggleRecommended={toggleRecommended}
+          reorderPricingTiers={reorderPricingTiers}
         />
 
         <TestimonialSection

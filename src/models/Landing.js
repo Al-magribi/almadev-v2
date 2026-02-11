@@ -23,6 +23,9 @@ const GalleryItemSchema = new mongoose.Schema({
 
 const PricingItemSchema = new mongoose.Schema({
   name: { type: String, required: true }, // Misal: "Basic", "Pro"
+  subtitle: { type: String }, // Subjudul paket (ditampilkan di bawah nama paket)
+  promoText: { type: String }, // Contoh: "Promo Ramadan"
+  buttonText: { type: String }, // Nama custom untuk tombol checkout
   price: { type: Number, required: true },
   benefits: [{ type: String }], // Array text untuk list benefit
   isRecommended: { type: Boolean, default: false }, // Opsi untuk highlight paket

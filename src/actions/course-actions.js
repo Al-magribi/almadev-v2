@@ -190,6 +190,20 @@ export async function updateCourse(courseId, formData) {
       })),
     }));
 
+    const normalizedPricingItems = (landingData.pricing?.items || []).map(
+      (item) => ({
+        name: item?.name || "",
+        subtitle: item?.subtitle || "",
+        promoText: item?.promoText || "",
+        buttonText: item?.buttonText || "",
+        price: Number(item?.price) || 0,
+        benefits: Array.isArray(item?.benefits)
+          ? item.benefits.filter((benefit) => benefit)
+          : [],
+        isRecommended: Boolean(item?.isRecommended),
+      }),
+    );
+
     // 5. Update Data Utama Course ke Database
     const updatePayload = {
       name,
@@ -216,7 +230,7 @@ export async function updateCourse(courseId, formData) {
           "hero.headline": landingData.hero?.headline,
           "hero.customSubtitle": landingData.hero?.customSubtitle,
 
-          "pricing.items": landingData.pricing?.items,
+          "pricing.items": normalizedPricingItems,
 
           "testimonials.items": landingData.testimonials?.items,
 

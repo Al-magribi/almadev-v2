@@ -457,6 +457,24 @@ export default async function CourseLandingPage({ params, searchParams }) {
                   >
                     {plan.name}
                   </h3>
+                  {plan.subtitle && (
+                    <p
+                      className={`text-sm mb-3 ${plan.isRecommended ? "text-violet-100/90" : "text-slate-400"}`}
+                    >
+                      {plan.subtitle}
+                    </p>
+                  )}
+                  {plan.promoText && (
+                    <div
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold mb-4 ${
+                        plan.isRecommended
+                          ? "bg-white/20 text-white border border-white/30"
+                          : "bg-amber-100 text-amber-800 border border-amber-200"
+                      }`}
+                    >
+                      {plan.promoText}
+                    </div>
+                  )}
                   <div className='text-4xl font-extrabold mb-6'>
                     {plan.price === 0 ? "Gratis" : formatRupiah(plan.price)}
                   </div>

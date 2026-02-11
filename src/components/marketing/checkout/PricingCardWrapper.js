@@ -35,7 +35,7 @@ export default function PricingCardWrapper({
             : "bg-slate-700 text-white hover:bg-slate-600"
         }`}
       >
-        Pilih {plan.name}
+        {plan.buttonText || `Pilih ${plan.name}`}
       </button>
 
       {isModalOpen && (
