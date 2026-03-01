@@ -3,6 +3,19 @@ import Image from "next/image";
 import { ArrowUpRight, Star } from "lucide-react";
 import { formatRupiah } from "@/lib/client-utils";
 
+function toCourseSlug(course = {}) {
+  return String(course?.slug || course?.name || "course")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getCourseHref(course = {}) {
+  const slug = toCourseSlug(course);
+  return `/courses/${slug}`;
+}
+
 export default function Courses({ data = [] }) {
   const featured = (data || []).slice(0, 6);
 
@@ -39,23 +52,28 @@ export default function Courses({ data = [] }) {
 
           <div className='grid grid-cols-1 gap-6 pt-10 md:grid-cols-2 lg:grid-cols-3'>
             {featured.map((course) => (
-              <Link
+              <article
                 key={course._id}
-                href={`/courses/${course._id}`}
                 className='group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-2xl'
               >
                 <div className='relative aspect-[4/3] w-full overflow-hidden bg-slate-100'>
-                  {course.image ? (
-                    <Image
-                      src={course.image}
-                      alt={course.name}
-                      fill
-                      className='object-cover transition duration-500 group-hover:scale-105'
-                      sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
-                    />
-                  ) : (
-                    <div className='absolute inset-0 bg-linear-to-br from-slate-200 via-slate-100 to-white' />
-                  )}
+                  <Link
+                    href={getCourseHref(course)}
+                    className='absolute inset-0'
+                    aria-label={`Buka detail kursus ${course.name}`}
+                  >
+                    {course.image ? (
+                      <Image
+                        src={course.image}
+                        alt={course.name}
+                        fill
+                        className='object-cover transition duration-500 group-hover:scale-105'
+                        sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
+                      />
+                    ) : (
+                      <div className='absolute inset-0 bg-linear-to-br from-slate-200 via-slate-100 to-white' />
+                    )}
+                  </Link>
                 </div>
 
                 <div className='flex flex-1 flex-col gap-3 p-6'>
@@ -67,9 +85,11 @@ export default function Courses({ data = [] }) {
                     </span>
                   </div>
 
-                  <h3 className='text-lg font-bold text-slate-900 line-clamp-2 min-h-[3rem] group-hover:text-blue-600 transition-colors'>
-                    {course.name}
-                  </h3>
+                  <Link href={getCourseHref(course)}>
+                    <h3 className='text-lg font-bold text-slate-900 line-clamp-2 min-h-[3rem] group-hover:text-blue-600 transition-colors'>
+                      {course.name}
+                    </h3>
+                  </Link>
 
                   <p className='text-sm text-slate-500 line-clamp-2'>
                     {course.description}
@@ -79,13 +99,16 @@ export default function Courses({ data = [] }) {
                     <span className='text-lg font-extrabold text-slate-900'>
                       {formatRupiah(course.price || 0)}
                     </span>
-                    <span className='inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white'>
+                    <Link
+                      href={getCourseHref(course)}
+                      className='inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white'
+                    >
                       Detail
                       <ArrowUpRight size={14} />
-                    </span>
+                    </Link>
                   </div>
                 </div>
-              </Link>
+              </article>
             ))}
           </div>
         </div>

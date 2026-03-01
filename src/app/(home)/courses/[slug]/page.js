@@ -60,14 +60,14 @@ import { getSettings } from "@/actions/setting-actions";
 // --- METADATA ---
 export async function generateMetadata({ params } = {}) {
   const resolvedParams = params ? await params : null;
-  const courseId = resolvedParams?.courseId;
-  if (!courseId || courseId === "undefined") {
+  const slug = resolvedParams?.slug;
+  if (!slug || slug === "undefined") {
     return {
       title: "Detail Kursus",
       description: "Belajar skill baru hari ini.",
     };
   }
-  const data = await getCourseDetail(courseId);
+  const data = await getCourseDetail(slug);
   return {
     title:
       data?.landing?.hero?.headline || data?.course?.name || "Detail Kursus",
@@ -78,8 +78,8 @@ export async function generateMetadata({ params } = {}) {
 
 // --- KOMPONEN UTAMA (SERVER COMPONENT) ---
 export default async function CourseLandingPage({ params, searchParams }) {
-  const { courseId } = await params;
-  if (!courseId || courseId === "undefined") {
+  const { slug } = await params;
+  if (!slug || slug === "undefined") {
     return notFound();
   }
   const sParams = await searchParams;
@@ -91,15 +91,23 @@ export default async function CourseLandingPage({ params, searchParams }) {
   const hasUtm =
     sParams?.utm_source || sParams?.utm_medium || sParams?.utm_campaign;
   if (!hasUtm) {
-    const query = new URLSearchParams(utmDefaults).toString();
-    redirect(`/courses/${courseId}?${query}`);
+    const query = new URLSearchParams(
+      Object.entries(sParams || {}).filter(
+        ([, value]) => value !== undefined && value !== null && value !== "",
+      ),
+    );
+    Object.entries(utmDefaults).forEach(([key, value]) => {
+      if (!query.get(key)) query.set(key, value);
+    });
+    redirect(`/courses/${slug}?${query.toString()}`);
   }
 
-  const [data, user, settings] = await Promise.all([
-    getCourseDetail(courseId),
+  const [dataBySlug, user, settings] = await Promise.all([
+    getCourseDetail(slug),
     getCurrentUser(),
     getSettings(),
   ]);
+  const data = dataBySlug;
   const metaPixelId = settings?.data?.metaPixelId || "";
 
   if (!data || !data.course) return notFound();
@@ -115,7 +123,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
       utmSource: sParams.utm_source,
       utmMedium: sParams.utm_medium,
       utmCampaign: sParams.utm_campaign,
-      pageUrl: `/courses/${courseId}`,
+      pageUrl: `/courses/${slug}`,
       userAgent: headerList.get("user-agent"),
     });
   }
@@ -161,6 +169,14 @@ export default async function CourseLandingPage({ params, searchParams }) {
     ...plan,
     _id: plan?._id?.toString?.() || "",
   }));
+  const minPricingValue = pricings.reduce((min, plan) => {
+    const value = Number(plan?.price);
+    if (!Number.isFinite(value)) return min;
+    return Math.min(min, value);
+  }, Number.POSITIVE_INFINITY);
+  const mobileStartingPrice = Number.isFinite(minPricingValue)
+    ? minPricingValue
+    : Number(course?.price) || 0;
   const faqs = landing?.faqs?.items || [];
 
   const safeUser = user
@@ -558,7 +574,9 @@ export default async function CourseLandingPage({ params, searchParams }) {
           <p className='text-xs text-slate-500 uppercase font-bold'>
             Mulai dari
           </p>
-          <p className='text-lg font-bold text-violet-600'>Rp 300.000</p>
+          <p className='text-lg font-bold text-violet-600'>
+            {formatRupiah(mobileStartingPrice)}
+          </p>
         </div>
         <a
           href='#pricing'

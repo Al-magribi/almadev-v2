@@ -8,6 +8,21 @@ import FacebookPixelPageView from "@/components/marketing/FacebookPixelPageView"
 
 export const dynamic = "force-dynamic";
 
+function toCourseSlug(course = {}) {
+  return String(course?.slug || course?.name || "course")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getCourseHref(course = {}, utmQuery = "") {
+  const slug = toCourseSlug(course);
+  const params = new URLSearchParams(utmQuery || "");
+  const query = params.toString();
+  return query ? `/courses/${slug}?${query}` : `/courses/${slug}`;
+}
+
 export default async function CoursesPage() {
   const utmQuery = "utm_source=website&utm_medium=landing&utm_campaign=direct";
   const courses = await getCourses();
@@ -49,7 +64,7 @@ export default async function CoursesPage() {
             {courses.map((course) => (
               <Link
                 key={course._id}
-                href={`/courses/${course._id}?${utmQuery}`}
+                href={getCourseHref(course, utmQuery)}
                 className='group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-2xl'
               >
                 <div className='relative aspect-[4/3] w-full overflow-hidden bg-slate-100'>

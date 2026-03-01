@@ -17,11 +17,79 @@ import Editor from "@/models/Editor";
 import Note from "@/models/Note";
 import Course from "@/models/Course";
 
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
+function slugifyCourseName(name = "") {
+  return String(name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildCourseSlug(course = {}) {
+  return String(course?.slug || slugifyCourseName(course?.name || "course"));
+}
+
+function escapeRegex(value = "") {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function generateUniqueCourseSlug(name = "", excludeCourseId = null) {
+  const base = slugifyCourseName(name) || "course";
+  const slugRegex = new RegExp(`^${escapeRegex(base)}(?:-\\d+)?$`, "i");
+
+  const query = { slug: { $regex: slugRegex } };
+  if (excludeCourseId) {
+    query._id = { $ne: excludeCourseId };
+  }
+
+  const existing = await Course.find(query).select("slug").lean();
+  const used = new Set(
+    existing.map((item) => String(item?.slug || "").toLowerCase()),
+  );
+
+  if (!used.has(base)) return base;
+
+  let index = 2;
+  let candidate = `${base}-${index}`;
+  while (used.has(candidate)) {
+    index += 1;
+    candidate = `${base}-${index}`;
+  }
+  return candidate;
+}
+
 // 1. LIST COURSES
 export async function getCourses() {
   await dbConnect();
   try {
     const courses = await Course.find({}).sort({ createdAt: -1 }).lean();
+
+    const participantStats = await Transaction.aggregate([
+      {
+        $match: {
+          itemType: "Course",
+          status: "completed",
+        },
+      },
+      {
+        $group: {
+          _id: "$itemId",
+          users: { $addToSet: "$userId" },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          participantsCount: { $size: "$users" },
+        },
+      },
+    ]);
+
+    const participantsByCourseId = new Map(
+      participantStats.map((item) => [String(item._id), item.participantsCount]),
+    );
 
     // --- PERBAIKAN: DEEP SANITIZATION ---
     // Menggunakan JSON.parse(JSON.stringify()) memaksa seluruh data
@@ -29,7 +97,11 @@ export async function getCourses() {
     // Ini otomatis memperbaiki error "Only plain objects..." untuk semua level kedalaman.
     const plainCourses = JSON.parse(JSON.stringify(courses));
 
-    return plainCourses;
+    return plainCourses.map((course) => ({
+      ...course,
+      slug: buildCourseSlug(course),
+      participantsCount: participantsByCourseId.get(String(course._id)) || 0,
+    }));
   } catch (error) {
     console.error("Fetch Error:", error);
     return [];
@@ -70,6 +142,7 @@ export async function createCourse(prevState, formData) {
 
   try {
     await dbConnect();
+    const slug = await generateUniqueCourseSlug(name);
 
     // Upload Gambar (Hanya jika file valid ada)
     let imagePath = "";
@@ -80,6 +153,7 @@ export async function createCourse(prevState, formData) {
     // Simpan ke DB
     const newCourse = await Course.create({
       name,
+      slug,
       price: 0,
       image: imagePath || "",
       video: video || "",
@@ -203,10 +277,12 @@ export async function updateCourse(courseId, formData) {
         isRecommended: Boolean(item?.isRecommended),
       }),
     );
+    const slug = await generateUniqueCourseSlug(name, courseId);
 
     // 5. Update Data Utama Course ke Database
     const updatePayload = {
       name,
+      slug,
       price: Number(price),
       description,
       video,
@@ -293,11 +369,31 @@ export async function deleteCourse(courseId) {
   }
 }
 
-export async function getCourseDetail(courseId) {
+export async function getCourseDetail(courseIdentifier) {
   await dbConnect();
   try {
-    const course = await Course.findById(courseId).lean();
+    const normalized = String(courseIdentifier || "").trim();
+    if (!normalized) return null;
+
+    let course = null;
+
+    if (OBJECT_ID_PATTERN.test(normalized)) {
+      course = await Course.findById(normalized).lean();
+    } else {
+      const slug = slugifyCourseName(normalized);
+      course = await Course.findOne({ slug }).lean();
+
+      // Fallback untuk data lama yang belum punya field slug di DB.
+      if (!course) {
+        const candidates = await Course.find({}).sort({ createdAt: -1 }).lean();
+        course =
+          candidates.find((item) => slugifyCourseName(item?.name) === slug) ||
+          null;
+      }
+    }
+
     if (!course) return null;
+    const courseId = course._id;
 
     const landing = await Landing.findOne({ courseId }).lean();
     const qnas = await Qna.find({ courseId }).lean();
@@ -307,6 +403,7 @@ export async function getCourseDetail(courseId) {
       course: {
         ...course,
         _id: course._id.toString(),
+        slug: buildCourseSlug(course),
         // Konversi Date ke String ISO agar aman dikirim ke client
         createdAt: course.createdAt ? course.createdAt.toISOString() : null,
         updatedAt: course.updatedAt ? course.updatedAt.toISOString() : null,

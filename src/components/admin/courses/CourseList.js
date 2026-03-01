@@ -90,10 +90,10 @@ export default function CourseList({ courses }) {
                 <div className='text-center'>
                   <div className='flex items-center justify-center gap-1 font-bold text-zinc-900 dark:text-zinc-100 text-sm'>
                     <Users size={14} className='text-zinc-400' />
-                    {course.totalReviews || 0}
+                    {course.participantsCount || 0}
                   </div>
                   <div className='text-[10px] text-zinc-500 dark:text-zinc-500 uppercase font-medium mt-0.5'>
-                    Perserta
+                    Peserta
                   </div>
                 </div>
                 <div className='text-center border-l border-r border-zinc-100 dark:border-zinc-800'>

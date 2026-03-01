@@ -4,6 +4,7 @@ const courseSchema = new mongoose.Schema(
   {
     instructorId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     name: { type: String, required: true },
+    slug: { type: String, trim: true, lowercase: true, index: true },
     image: { type: String },
     video: { type: String },
     description: { type: String },

@@ -18,9 +18,13 @@ import {
   Landmark,
   Hash,
   Receipt,
+  Trash2,
 } from "lucide-react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import DeleteConfirmation from "@/components/ui/DeleteConfirmation";
+import { deleteTransactionByAdmin } from "@/actions/transaction-actions";
 
 // Helper Status Color
 const getStatusBadge = (status) => {
@@ -40,9 +44,13 @@ const getStatusBadge = (status) => {
 };
 
 export default function TransactionList({ transactions = [] }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [selected, setSelected] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filtering Logic
   const filteredData = useMemo(
@@ -95,6 +103,36 @@ export default function TransactionList({ transactions = [] }) {
 
   const getItemTypeLabel = (trx) =>
     trx.itemType === "BootcampParticipant" ? "Bootcamp" : trx.itemType;
+
+  const handleDeleteClick = (transactionId) => {
+    setSelectedTransactionId(transactionId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedTransactionId) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteTransactionByAdmin(selectedTransactionId);
+      if (!result?.success) {
+        alert(result?.error || "Gagal menghapus transaksi.");
+        return;
+      }
+
+      setIsDeleteModalOpen(false);
+      setSelectedTransactionId(null);
+      if (selected?._id === selectedTransactionId) {
+        setSelected(null);
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("Delete transaction error:", error);
+      alert("Terjadi kesalahan sistem.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className='bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden'>
@@ -256,13 +294,22 @@ export default function TransactionList({ transactions = [] }) {
 
                   {/* Aksi */}
                   <td className='px-6 py-4 text-center'>
-                    <button
-                      className='p-2 text-zinc-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg transition-colors'
-                      title='Lihat Detail'
-                      onClick={() => setSelected(trx)}
-                    >
-                      <ArrowUpRight size={18} />
-                    </button>
+                    <div className='flex items-center justify-center gap-1'>
+                      <button
+                        className='p-2 text-zinc-400 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg transition-colors'
+                        title='Lihat Detail'
+                        onClick={() => setSelected(trx)}
+                      >
+                        <ArrowUpRight size={18} />
+                      </button>
+                      <button
+                        className='p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors'
+                        title='Hapus Transaksi'
+                        onClick={() => handleDeleteClick(trx._id)}
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -471,6 +518,13 @@ export default function TransactionList({ transactions = [] }) {
                 <div className='flex items-center justify-end gap-2 border-t border-zinc-200 px-5 py-4'>
                   <button
                     type='button'
+                    onClick={() => handleDeleteClick(selected._id)}
+                    className='inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100'
+                  >
+                    Hapus Transaksi
+                  </button>
+                  <button
+                    type='button'
                     onClick={() => setSelected(null)}
                     className='inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50'
                   >
@@ -482,6 +536,18 @@ export default function TransactionList({ transactions = [] }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <DeleteConfirmation
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (isDeleting) return;
+          setIsDeleteModalOpen(false);
+        }}
+        onConfirm={handleConfirmDelete}
+        isDeleting={isDeleting}
+        title='Hapus Transaksi'
+        description='Transaksi akan dihapus permanen. Data user tidak akan ikut terhapus.'
+      />
     </div>
   );
 }

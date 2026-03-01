@@ -9,6 +9,7 @@ import BootcampParticipant from "@/models/BootcampParticipant";
 import dbConnect from "@/lib/db";
 import { customAlphabet } from "nanoid";
 import { sendPaymentEmail } from "@/lib/emailService";
+import { getCurrentUser } from "@/lib/auth-service";
 
 const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
@@ -55,6 +56,31 @@ export async function getAllTransactions() {
   }
 }
 
+export async function deleteTransactionByAdmin(transactionId) {
+  await dbConnect();
+
+  try {
+    const session = await getCurrentUser();
+    if (!session?.userId || session.role !== "admin") {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!transactionId) {
+      return { success: false, error: "transactionId wajib diisi." };
+    }
+
+    const deleted = await Transaction.findByIdAndDelete(transactionId);
+    if (!deleted) {
+      return { success: false, error: "Transaksi tidak ditemukan." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting transaction:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function getTransactionAnalytics() {
   await dbConnect();
 
@@ -69,13 +95,12 @@ export async function getTransactionAnalytics() {
     ]);
 
     const utmStats = await Transaction.aggregate([
+      { $match: { status: "completed" } },
       {
         $group: {
           _id: "$utmSource",
           count: { $sum: 1 },
-          revenue: {
-            $sum: { $cond: [{ $eq: ["$status", "completed"] }, "$price", 0] },
-          },
+          revenue: { $sum: "$price" },
         },
       },
       { $sort: { count: -1 } },
