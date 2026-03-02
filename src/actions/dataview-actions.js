@@ -6,6 +6,33 @@ import dbConnect from "@/lib/db";
 import ViewData from "@/models/ViewData";
 import Transaction from "@/models/Transaction";
 
+const ANALYTIC_TIMEZONE = "Asia/Jakarta";
+const ANALYTIC_UTC_OFFSET_HOURS = 7;
+
+function formatDateKeyInOffset(date, offsetHours = ANALYTIC_UTC_OFFSET_HOURS) {
+  const shifted = new Date(date.getTime() + offsetHours * 60 * 60 * 1000);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLastDaysRangeInOffset(days, offsetHours = ANALYTIC_UTC_OFFSET_HOURS) {
+  const offsetMs = offsetHours * 60 * 60 * 1000;
+  const now = new Date();
+  const offsetNow = new Date(now.getTime() + offsetMs);
+
+  offsetNow.setHours(23, 59, 59, 999);
+  const offsetStart = new Date(offsetNow);
+  offsetStart.setDate(offsetNow.getDate() - (days - 1));
+  offsetStart.setHours(0, 0, 0, 0);
+
+  return {
+    startDate: new Date(offsetStart.getTime() - offsetMs),
+    endDate: new Date(offsetNow.getTime() - offsetMs),
+  };
+}
+
 export async function trackPageView(data) {
   try {
     await dbConnect();
@@ -78,18 +105,18 @@ export async function getAnalyticData(courseId) {
     // =========================
     // Date range (last 14 days)
     // =========================
-    const endDate = new Date();
-    endDate.setHours(23, 59, 59, 999);
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - 13);
-    startDate.setHours(0, 0, 0, 0);
+    const { startDate, endDate } = getLastDaysRangeInOffset(14);
 
     const viewTrends = await ViewData.aggregate([
       { $match: { itemId, createdAt: { $gte: startDate, $lte: endDate } } },
       {
         $group: {
           _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: ANALYTIC_TIMEZONE,
+            },
           },
           count: { $sum: 1 },
         },
@@ -108,7 +135,11 @@ export async function getAnalyticData(courseId) {
       {
         $group: {
           _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: ANALYTIC_TIMEZONE,
+            },
           },
           count: { $sum: 1 },
         },
@@ -179,7 +210,7 @@ export async function getAnalyticData(courseId) {
       for (let i = 0; i < days; i += 1) {
         const date = new Date(startDate);
         date.setDate(startDate.getDate() + i);
-        const key = date.toISOString().slice(0, 10);
+        const key = formatDateKeyInOffset(date);
         result.push({ date: key, count: map.get(key) || 0 });
       }
       return result;

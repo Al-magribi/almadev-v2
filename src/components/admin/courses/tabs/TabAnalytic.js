@@ -96,8 +96,49 @@ export default function TabAnalytic({ courseId }) {
     },
   ];
 
-  const maxViews = Math.max(1, ...stats.dailyViews.map((d) => d.count));
-  const maxSales = Math.max(1, ...stats.dailySales.map((d) => d.count));
+  const formatDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeDateKey = (value) => String(value).slice(0, 10);
+
+  const buildLast14Days = () => {
+    const result = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 13; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      result.push(formatDateKey(date));
+    }
+
+    return result;
+  };
+
+  const dateRange14Days = buildLast14Days();
+  const viewsMap = new Map(
+    stats.dailyViews.map((item) => [normalizeDateKey(item.date), item.count])
+  );
+  const salesMap = new Map(
+    stats.dailySales.map((item) => [normalizeDateKey(item.date), item.count])
+  );
+
+  const dailyViews = dateRange14Days.map((date) => ({
+    date,
+    count: viewsMap.get(date) || 0,
+  }));
+
+  const dailySales = dateRange14Days.map((date) => ({
+    date,
+    count: salesMap.get(date) || 0,
+  }));
+
+  const maxViews = Math.max(1, ...dailyViews.map((d) => d.count));
+  const maxSales = Math.max(1, ...dailySales.map((d) => d.count));
 
   return (
     <div className='space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700'>
@@ -166,12 +207,13 @@ export default function TabAnalytic({ courseId }) {
                 Pengunjung
               </div>
               <div className='flex items-end gap-1'>
-                {stats.dailyViews.map((item) => {
+                {dailyViews.map((item) => {
                   return (
                     <div key={item.date} className='flex-1 flex flex-col'>
                       <div className='h-16 md:h-20 flex items-end'>
                         <div
                           className='w-full rounded-md bg-blue-500/70'
+                          title={`${item.date}: ${item.count} pengunjung`}
                           style={{
                             height: `${(item.count / maxViews) * 100}%`,
                           }}
@@ -191,12 +233,13 @@ export default function TabAnalytic({ courseId }) {
                 Penjualan
               </div>
               <div className='flex items-end gap-1'>
-                {stats.dailySales.map((item) => {
+                {dailySales.map((item) => {
                   return (
                     <div key={item.date} className='flex-1 flex flex-col'>
                       <div className='h-16 md:h-20 flex items-end'>
                         <div
                           className='w-full rounded-md bg-emerald-500/70'
+                          title={`${item.date}: ${item.count} penjualan`}
                           style={{
                             height: `${(item.count / maxSales) * 100}%`,
                           }}
