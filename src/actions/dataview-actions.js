@@ -8,6 +8,7 @@ import Transaction from "@/models/Transaction";
 
 const ANALYTIC_TIMEZONE = "Asia/Jakarta";
 const ANALYTIC_UTC_OFFSET_HOURS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function formatDateKeyInOffset(date, offsetHours = ANALYTIC_UTC_OFFSET_HOURS) {
   const shifted = new Date(date.getTime() + offsetHours * 60 * 60 * 1000);
@@ -19,26 +20,37 @@ function formatDateKeyInOffset(date, offsetHours = ANALYTIC_UTC_OFFSET_HOURS) {
 
 function getLastDaysRangeInOffset(days, offsetHours = ANALYTIC_UTC_OFFSET_HOURS) {
   const offsetMs = offsetHours * 60 * 60 * 1000;
-  const now = new Date();
-  const offsetNow = new Date(now.getTime() + offsetMs);
+  const nowUtcMs = Date.now();
+  const nowInOffsetMs = nowUtcMs + offsetMs;
 
-  offsetNow.setHours(23, 59, 59, 999);
-  const offsetStart = new Date(offsetNow);
-  offsetStart.setDate(offsetNow.getDate() - (days - 1));
-  offsetStart.setHours(0, 0, 0, 0);
+  const endDayIndex = Math.floor(nowInOffsetMs / DAY_MS);
+  const endOffsetMs = endDayIndex * DAY_MS + (DAY_MS - 1);
+  const startOffsetMs = endOffsetMs - (days - 1) * DAY_MS - (DAY_MS - 1);
 
   return {
-    startDate: new Date(offsetStart.getTime() - offsetMs),
-    endDate: new Date(offsetNow.getTime() - offsetMs),
+    startDate: new Date(startOffsetMs - offsetMs),
+    endDate: new Date(endOffsetMs - offsetMs),
   };
 }
 
 export async function trackPageView(data) {
   try {
+    if (!data?.pageUrl) {
+      return { success: false, error: "pageUrl wajib diisi" };
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(data?.landingId)) {
+      return { success: false, error: "landingId tidak valid" };
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(data?.itemId)) {
+      return { success: false, error: "itemId tidak valid" };
+    }
+
     await dbConnect();
     await ViewData.create({
-      landingId: data.landingId,
-      itemId: data.itemId,
+      landingId: new mongoose.Types.ObjectId(data.landingId),
+      itemId: new mongoose.Types.ObjectId(data.itemId),
       utmSource: data.utmSource || "direct",
       utmMedium: data.utmMedium,
       utmCampaign: data.utmCampaign,
@@ -49,7 +61,7 @@ export async function trackPageView(data) {
     return { success: true };
   } catch (error) {
     console.error("Failed to track view:", error);
-    return { success: false };
+    return { success: false, error: error?.message || "unknown error" };
   }
 }
 
@@ -208,8 +220,7 @@ export async function getAnalyticData(courseId) {
       const map = new Map(list.map((d) => [d._id, d.count]));
       const result = [];
       for (let i = 0; i < days; i += 1) {
-        const date = new Date(startDate);
-        date.setDate(startDate.getDate() + i);
+        const date = new Date(startDate.getTime() + i * DAY_MS);
         const key = formatDateKeyInOffset(date);
         result.push({ date: key, count: map.get(key) || 0 });
       }

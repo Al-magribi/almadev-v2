@@ -115,17 +115,25 @@ export default async function CourseLandingPage({ params, searchParams }) {
   const { course, landing } = data;
   const courseIdForClient = course?._id?.toString?.() || "";
 
-  if (data && data.course) {
+  if (data?.course?._id && data?.landing?._id) {
     const headerList = await headers();
-    void trackPageView({
-      landingId: data.landing?._id,
-      itemId: data.course._id,
-      utmSource: sParams.utm_source,
-      utmMedium: sParams.utm_medium,
-      utmCampaign: sParams.utm_campaign,
-      pageUrl: `/courses/${slug}`,
-      userAgent: headerList.get("user-agent"),
-    });
+    try {
+      const trackResult = await trackPageView({
+        landingId: data.landing._id,
+        itemId: data.course._id,
+        utmSource: sParams.utm_source,
+        utmMedium: sParams.utm_medium,
+        utmCampaign: sParams.utm_campaign,
+        pageUrl: `/courses/${slug}`,
+        userAgent: headerList.get("user-agent"),
+      });
+
+      if (!trackResult?.success) {
+        console.error("Track page view failed:", trackResult?.error);
+      }
+    } catch (error) {
+      console.error("Track page view failed:", error);
+    }
   }
 
   // --- 1. DATA PREPARATION & SANITIZATION ---
