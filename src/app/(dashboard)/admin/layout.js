@@ -3,6 +3,12 @@ import AdminClientLayout from "@/components/admin/AdminClientLayout"; // Import 
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 // Hapus "use client" agar bisa jadi async Server Component
 export default async function AdminLayout({ children }) {

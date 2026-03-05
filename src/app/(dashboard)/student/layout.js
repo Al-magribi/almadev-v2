@@ -3,6 +3,12 @@ import StudentShell from "@/components/student/StudentShell";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function StudentLayout({ children }) {
   const { success, data: user } = await getUserProfile();

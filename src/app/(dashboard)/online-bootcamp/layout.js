@@ -3,6 +3,12 @@ import BootcampShell from "@/components/bootcamp/BootcampShell";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function BootcampLayout({ children }) {
   const { success, data: user } = await getUserProfile();

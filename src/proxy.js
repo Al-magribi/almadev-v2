@@ -83,5 +83,7 @@ export async function proxy(request) {
 
 export const config = {
   // Middleware berjalan di semua route KECUALI api, _next (static assets), dan file public tertentu
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|logo.svg).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|logo.svg|robots.txt|sitemap.xml|manifest.webmanifest).*)",
+  ],
 };

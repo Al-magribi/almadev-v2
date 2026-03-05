@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/provider/ThemeProvider"; // Pastikan
 import { getSettings } from "@/actions/setting-actions";
 
 export const dynamic = "force-dynamic";
+const FALLBACK_BASE_URL = "https://jadidalmagribi.com";
 
 const firaSans = Fira_Sans({
   subsets: ["latin"],
@@ -17,30 +18,147 @@ const firaCode = Fira_Code({
   variable: "--font-fira-code",
 });
 
-export const metadata = {
-  title: {
-    default: "ALMADEV | Build & Deploy",
-    template: "%s | ALMADEV", // Ini akan menghasilkan "Bootcamp... | ALMADEV" secara otomatis
-  },
-  description:
-    "Platform belajar pemrograman JavaScript Full Stack berstandar industri.",
-  metadataBase: new URL("https://jadidalmagribi.com"), // Ganti dengan domain asli Anda
-  alternates: {
-    canonical: "/",
-  },
-  icons: {
-    icon: "/logo.svg",
-    apple: "/apple-touch-icon.png",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+function normalizeBaseUrl(domain) {
+  const raw = String(domain || "").trim();
+
+  if (!raw) {
+    return FALLBACK_BASE_URL;
+  }
+
+  try {
+    return raw.startsWith("http://") || raw.startsWith("https://")
+      ? new URL(raw).toString().replace(/\/$/, "")
+      : new URL(`https://${raw}`).toString().replace(/\/$/, "");
+  } catch {
+    return FALLBACK_BASE_URL;
+  }
+}
+
+function resolveUrl(baseUrl, candidate, fallbackPath = "/") {
+  const raw = String(candidate || "").trim();
+  const safePath = String(fallbackPath || "/");
+
+  if (!raw) {
+    return new URL(safePath, baseUrl).toString();
+  }
+
+  try {
+    return new URL(raw, baseUrl).toString();
+  } catch {
+    return new URL(safePath, baseUrl).toString();
+  }
+}
+
+function buildSeoPayload(settings = {}) {
+  const baseUrl = normalizeBaseUrl(settings?.domain);
+  const websiteName = (settings?.websiteName || "ALMADEV").trim();
+  const seoTitle = (settings?.seoTitle || websiteName || "ALMADEV").trim();
+  const seoDescription = (
+    settings?.seoDescription ||
+    "Platform belajar pemrograman JavaScript Full Stack berstandar industri."
+  ).trim();
+  const seoKeywords = String(settings?.seoKeywords || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const faviconUrl = resolveUrl(baseUrl, settings?.websiteFavicon, "/favicon.ico");
+  const logoUrl = resolveUrl(baseUrl, settings?.websiteLogo, "/logo.svg");
+
+  return {
+    baseUrl,
+    websiteName,
+    seoTitle,
+    seoDescription,
+    seoKeywords,
+    faviconUrl,
+    logoUrl,
+  };
+}
+
+export async function generateMetadata() {
+  const settings = await getSettings();
+  const seo = buildSeoPayload(settings?.data || {});
+
+  return {
+    metadataBase: new URL(seo.baseUrl),
+    title: {
+      default: seo.seoTitle,
+      template: `%s | ${seo.websiteName}`,
+    },
+    description: seo.seoDescription,
+    keywords: seo.seoKeywords,
+    alternates: {
+      canonical: "/",
+    },
+    icons: {
+      icon: [
+        { url: seo.faviconUrl },
+        { url: "/favicon.ico" },
+      ],
+      shortcut: seo.faviconUrl,
+      apple: seo.faviconUrl,
+    },
+    openGraph: {
+      type: "website",
+      url: seo.baseUrl,
+      siteName: seo.websiteName,
+      title: seo.seoTitle,
+      description: seo.seoDescription,
+      images: [
+        {
+          url: seo.logoUrl,
+          alt: `${seo.websiteName} logo`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seo.seoTitle,
+      description: seo.seoDescription,
+      images: [seo.logoUrl],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
+    manifest: "/manifest.webmanifest",
+  };
+}
 
 export default async function RootLayout({ children }) {
   const settings = await getSettings();
-  const metaPixelId = settings?.data?.metaPixelId || "";
+  const siteSettings = settings?.data || {};
+  const metaPixelId = siteSettings?.metaPixelId || "";
+  const seo = buildSeoPayload(siteSettings);
+
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: seo.websiteName,
+      url: seo.baseUrl,
+      logo: seo.logoUrl,
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: seo.websiteName,
+      url: seo.baseUrl,
+      potentialAction: {
+        "@type": "SearchAction",
+        target: `${seo.baseUrl}/courses?search={search_term_string}`,
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ];
+
   const pixelSrc = metaPixelId
     ? `https://www.facebook.com/tr?id=${encodeURIComponent(
         metaPixelId,
@@ -48,7 +166,7 @@ export default async function RootLayout({ children }) {
     : "";
 
   return (
-    <html lang='en' suppressHydrationWarning>
+    <html lang='id' suppressHydrationWarning>
       <body
         className={`${firaSans.variable} ${firaCode.variable} antialiased font-sans bg-background text-foreground`}
       >
@@ -61,6 +179,10 @@ export default async function RootLayout({ children }) {
         >
           {children}
           <Toaster position='top-center' />
+          <script
+            type='application/ld+json'
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          />
           {pixelSrc ? (
             <noscript>
               <img

@@ -5,6 +5,13 @@ import { getCurrentUser } from "@/lib/auth-service";
 import Checkout from "@/components/marketing/checkout/Checkout"; // Sesuaikan path import
 import { notFound, redirect } from "next/navigation";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
 export default async function CheckoutPage({ searchParams }) {
   // 1. Ambil data dari URL
   const query = await searchParams;
