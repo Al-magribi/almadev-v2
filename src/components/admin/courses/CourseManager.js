@@ -293,6 +293,8 @@ export default function CourseManager({ initialData }) {
           <TabSettings
             course={courseData}
             setCourse={setCourseData}
+            landing={landingData}
+            setLanding={setLandingData}
             newImageFile={newImageFile}
             setNewImageFile={setNewImageFile}
           />

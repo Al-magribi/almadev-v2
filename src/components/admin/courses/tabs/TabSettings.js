@@ -4,6 +4,8 @@ import { Image as ImageIcon, Upload, AlertOctagon } from "lucide-react";
 export default function TabSettings({
   course,
   setCourse,
+  landing,
+  setLanding,
   newImageFile,
   setNewImageFile,
 }) {
@@ -19,6 +21,19 @@ export default function TabSettings({
     if (file) {
       setNewImageFile(file);
     }
+  };
+
+  const handleManualStudentsChange = (e) => {
+    const parsed = Number(e.target.value);
+    const manualStudents = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+
+    setLanding((prev) => ({
+      ...prev,
+      instructor: {
+        ...(prev?.instructor || {}),
+        customStudents: manualStudents,
+      },
+    }));
   };
 
   return (
@@ -65,6 +80,23 @@ export default function TabSettings({
                   className='w-full pl-10 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all shadow-sm'
                 />
               </div>
+            </div>
+
+            <div className='space-y-2'>
+              <label className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
+                Jumlah Siswa Manual
+              </label>
+              <input
+                type='number'
+                min='0'
+                value={landing?.instructor?.customStudents ?? 0}
+                onChange={handleManualStudentsChange}
+                className='w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all shadow-sm'
+              />
+              <p className='text-xs text-zinc-500'>
+                Nilai ini akan ditambahkan dengan jumlah siswa yang benar-benar
+                sudah mendaftar kursus.
+              </p>
             </div>
 
             {/* FITUR VIDEO YOUTUBE */}

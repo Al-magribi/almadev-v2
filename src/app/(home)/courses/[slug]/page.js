@@ -196,10 +196,37 @@ export default async function CourseLandingPage({ params, searchParams }) {
       }
     : null;
 
-  // Hitung statistik (Fallback ke default jika kosong)
-  const rating = landing?.instructor?.customRating || course.rating || 4.8;
-  const students =
-    landing?.instructor?.customStudents || course.totalReviews * 10 || 120;
+  const activeTestimonials = testimonials.filter(
+    (item) =>
+      item?.isActive !== false && Number.isFinite(Number(item?.rating || 0)),
+  );
+  const totalRatingFromTestimonials = activeTestimonials.reduce(
+    (sum, item) => sum + Math.max(0, Math.min(5, Number(item?.rating) || 0)),
+    0,
+  );
+  const computedTestimonialRating =
+    activeTestimonials.length > 0
+      ? totalRatingFromTestimonials / activeTestimonials.length
+      : 0;
+
+  // Statistik hero:
+  // students = input manual (admin) + jumlah peserta terdaftar (dari transaksi completed).
+  // rating = rata-rata rating dari testimonial.
+  const manualStudents = Math.max(
+    0,
+    Number(landing?.instructor?.customStudents) || 0,
+  );
+  const registeredStudents = Math.max(
+    0,
+    Number(course?.participantsCount) || 0,
+  );
+  const students = manualStudents + registeredStudents;
+  const rating =
+    Number(
+      computedTestimonialRating > 0
+        ? computedTestimonialRating.toFixed(1)
+        : Number(course?.rating || 0).toFixed(1),
+    ) || 4.8;
 
   return (
     <div className='bg-white text-slate-900 font-sans selection:bg-violet-100 selection:text-violet-900'>
@@ -235,6 +262,21 @@ export default async function CourseLandingPage({ params, searchParams }) {
               <p className='text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto lg:mx-0'>
                 {heroData.subtitle}
               </p>
+
+              <div className='flex flex-wrap items-center gap-3 justify-center lg:justify-start'>
+                <div className='inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/70 border border-slate-700/80 text-slate-100'>
+                  <Users size={16} className='text-violet-300' />
+                  <span className='text-sm font-semibold'>
+                    {students.toLocaleString("id-ID")} Siswa
+                  </span>
+                </div>
+                <div className='inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900/70 border border-slate-700/80 text-slate-100'>
+                  <Star size={16} className='text-yellow-400 fill-yellow-400' />
+                  <span className='text-sm font-semibold'>
+                    {rating} ({activeTestimonials.length + 150} testimoni)
+                  </span>
+                </div>
+              </div>
 
               {/* CTA Buttons */}
               <div className='flex flex-col sm:flex-row items-center gap-4 pt-4 justify-center lg:justify-start'>
@@ -596,4 +638,3 @@ export default async function CourseLandingPage({ params, searchParams }) {
     </div>
   );
 }
-

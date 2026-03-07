@@ -279,6 +279,11 @@ export async function updateCourse(courseId, formData) {
     );
     const slug = await generateUniqueCourseSlug(name, courseId);
 
+    const manualStudents = Math.max(
+      0,
+      Number(landingData?.instructor?.customStudents) || 0,
+    );
+
     // 5. Update Data Utama Course ke Database
     const updatePayload = {
       name,
@@ -305,6 +310,7 @@ export async function updateCourse(courseId, formData) {
         $set: {
           "hero.headline": landingData.hero?.headline,
           "hero.customSubtitle": landingData.hero?.customSubtitle,
+          "instructor.customStudents": manualStudents,
 
           "pricing.items": normalizedPricingItems,
 
@@ -395,8 +401,32 @@ export async function getCourseDetail(courseIdentifier) {
     if (!course) return null;
     const courseId = course._id;
 
-    const landing = await Landing.findOne({ courseId }).lean();
-    const qnas = await Qna.find({ courseId }).lean();
+    const [landing, qnas, participantStats] = await Promise.all([
+      Landing.findOne({ courseId }).lean(),
+      Qna.find({ courseId }).lean(),
+      Transaction.aggregate([
+        {
+          $match: {
+            itemType: "Course",
+            status: "completed",
+            itemId: courseId,
+          },
+        },
+        {
+          $group: {
+            _id: "$itemId",
+            users: { $addToSet: "$userId" },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            participantsCount: { $size: "$users" },
+          },
+        },
+      ]),
+    ]);
+    const participantsCount = participantStats?.[0]?.participantsCount || 0;
 
     return {
       // Perbaiki Object Course
@@ -404,6 +434,7 @@ export async function getCourseDetail(courseIdentifier) {
         ...course,
         _id: course._id.toString(),
         slug: buildCourseSlug(course),
+        participantsCount,
         // Konversi Date ke String ISO agar aman dikirim ke client
         createdAt: course.createdAt ? course.createdAt.toISOString() : null,
         updatedAt: course.updatedAt ? course.updatedAt.toISOString() : null,
