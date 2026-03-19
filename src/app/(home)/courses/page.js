@@ -7,6 +7,18 @@ import { formatRupiah } from "@/lib/client-utils";
 import FacebookPixelPageView from "@/components/marketing/FacebookPixelPageView";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Semua Kursus",
+  alternates: {
+    canonical: "/courses",
+  },
+};
+
+const WEBSITE_LANDING_UTM = new URLSearchParams({
+  utm_source: "website",
+  utm_medium: "landing",
+  utm_campaign: "direct",
+}).toString();
 
 function toCourseSlug(course = {}) {
   return String(course?.slug || course?.name || "course")
@@ -16,15 +28,12 @@ function toCourseSlug(course = {}) {
     .replace(/^-+|-+$/g, "");
 }
 
-function getCourseHref(course = {}, utmQuery = "") {
+function getCourseHref(course = {}) {
   const slug = toCourseSlug(course);
-  const params = new URLSearchParams(utmQuery || "");
-  const query = params.toString();
-  return query ? `/courses/${slug}?${query}` : `/courses/${slug}`;
+  return `/courses/${slug}?${WEBSITE_LANDING_UTM}`;
 }
 
 export default async function CoursesPage() {
-  const utmQuery = "utm_source=website&utm_medium=landing&utm_campaign=direct";
   const courses = await getCourses();
   const settings = await getSettings();
   const metaPixelId = settings?.data?.metaPixelId || "";
@@ -64,7 +73,7 @@ export default async function CoursesPage() {
             {courses.map((course) => (
               <Link
                 key={course._id}
-                href={getCourseHref(course, utmQuery)}
+                href={getCourseHref(course)}
                 className='group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-2xl'
               >
                 <div className='relative aspect-[4/3] w-full overflow-hidden bg-slate-100'>

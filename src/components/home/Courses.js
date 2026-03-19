@@ -3,6 +3,12 @@ import Image from "next/image";
 import { ArrowUpRight, Star } from "lucide-react";
 import { formatRupiah } from "@/lib/client-utils";
 
+const WEBSITE_LANDING_UTM = new URLSearchParams({
+  utm_source: "website",
+  utm_medium: "landing",
+  utm_campaign: "direct",
+}).toString();
+
 function toCourseSlug(course = {}) {
   return String(course?.slug || course?.name || "course")
     .toLowerCase()
@@ -13,7 +19,7 @@ function toCourseSlug(course = {}) {
 
 function getCourseHref(course = {}) {
   const slug = toCourseSlug(course);
-  return `/courses/${slug}`;
+  return `/courses/${slug}?${WEBSITE_LANDING_UTM}`;
 }
 
 export default function Courses({ data = [] }) {

@@ -5,6 +5,12 @@ import { getProducts } from "@/actions/product-actions";
 import { formatRupiah } from "@/lib/client-utils";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Semua Produk",
+  alternates: {
+    canonical: "/products",
+  },
+};
 
 export default async function ProductsPage() {
   const products = await getProducts({ status: "published" });

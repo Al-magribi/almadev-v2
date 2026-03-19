@@ -22,10 +22,19 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const hasTrackedCheckout = useRef(false);
   const itemType = item?.itemType || "Course";
   const planLabel =
     item?.planName || (itemType === "Product" ? "Produk Digital" : "Online Course");
+  const normalizedPhone = (() => {
+    const digits = String(user?.phone || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("62")) return digits;
+    if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+    if (digits.startsWith("8")) return `62${digits}`;
+    return digits;
+  })();
 
   const getCookie = (key) => {
     const match = document.cookie.match(
@@ -105,6 +114,7 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
   }, [item, itemType, metaPixelId]);
 
   const handleCheckout = async () => {
+    setErrorMessage("");
     setLoading(true);
     try {
       const res = await createPayment({
@@ -125,10 +135,12 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
       if (res.success && res.redirectUrl) {
         window.location.href = res.redirectUrl;
       } else {
-        throw new Error(res.error || "Gagal membuat token pembayaran");
+        const message = res.error || "Gagal membuat token pembayaran";
+        setErrorMessage(message);
+        setLoading(false);
       }
     } catch (err) {
-      alert(err.message);
+      setErrorMessage(err.message || "Terjadi kesalahan saat checkout.");
       setLoading(false);
     }
   };
@@ -254,7 +266,9 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
                   <p className='text-xs text-slate-400 font-bold uppercase'>
                     WhatsApp
                   </p>
-                  <p className='text-slate-900 font-medium'>{user.phone}</p>
+                  <p className='text-slate-900 font-medium'>
+                    {normalizedPhone || user.phone}
+                  </p>
                 </div>
               </div>
             </div>
@@ -270,6 +284,12 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
             className='bg-slate-900 text-white p-8 md:p-10 rounded-[2.5rem] shadow-2xl shadow-violet-900/20 sticky top-24'
           >
             <h3 className='text-xl font-bold mb-8'>Detail Pembayaran</h3>
+
+            {errorMessage ? (
+              <div className='mb-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100'>
+                {errorMessage}
+              </div>
+            ) : null}
 
             <div className='space-y-4 mb-10 text-slate-400 text-sm'>
               <div className='flex justify-between'>

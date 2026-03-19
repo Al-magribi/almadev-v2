@@ -35,6 +35,8 @@ const getStatusBadge = (status) => {
       "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
     failed:
       "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+    expired:
+      "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800",
     cancelled:
       "bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700",
     refunded:
@@ -104,6 +106,9 @@ export default function TransactionList({ transactions = [] }) {
   const getItemTypeLabel = (trx) =>
     trx.itemType === "BootcampParticipant" ? "Bootcamp" : trx.itemType;
 
+  const isDeleteDisabled = (status) =>
+    status === "failed" || status === "expired";
+
   const handleDeleteClick = (transactionId) => {
     setSelectedTransactionId(transactionId);
     setIsDeleteModalOpen(true);
@@ -171,6 +176,8 @@ export default function TransactionList({ transactions = [] }) {
               <option value='pending'>Pending</option>
               <option value='completed'>Completed</option>
               <option value='failed'>Failed</option>
+              <option value='expired'>Expired</option>
+              <option value='cancelled'>Cancelled</option>
             </select>
             <Filter className='absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 w-3 h-3 pointer-events-none' />
           </div>
@@ -303,9 +310,14 @@ export default function TransactionList({ transactions = [] }) {
                         <ArrowUpRight size={18} />
                       </button>
                       <button
-                        className='p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors'
-                        title='Hapus Transaksi'
+                        className='p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-zinc-400 disabled:hover:bg-transparent'
+                        title={
+                          isDeleteDisabled(trx.status)
+                            ? "Transaksi failed/expired tidak boleh dihapus"
+                            : "Hapus Transaksi"
+                        }
                         onClick={() => handleDeleteClick(trx._id)}
+                        disabled={isDeleteDisabled(trx.status)}
                       >
                         <Trash2 size={17} />
                       </button>
@@ -519,7 +531,13 @@ export default function TransactionList({ transactions = [] }) {
                   <button
                     type='button'
                     onClick={() => handleDeleteClick(selected._id)}
-                    className='inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100'
+                    className='inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-zinc-200 disabled:bg-zinc-100 disabled:text-zinc-400 disabled:hover:bg-zinc-100'
+                    disabled={isDeleteDisabled(selected.status)}
+                    title={
+                      isDeleteDisabled(selected.status)
+                        ? "Transaksi failed/expired tidak boleh dihapus"
+                        : "Hapus Transaksi"
+                    }
                   >
                     Hapus Transaksi
                   </button>

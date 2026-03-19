@@ -5,6 +5,11 @@ import { getCourses } from "@/actions/course-actions"; //
 import { getSettings } from "@/actions/setting-actions";
 
 export const dynamic = "force-dynamic"; // Pastikan data selalu fresh
+export const metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default async function Homepage() {
   // 1. Fetch data dari database (Server Side)

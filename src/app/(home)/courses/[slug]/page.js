@@ -1,6 +1,6 @@
 import { getCourseDetail } from "@/actions/course-actions";
 import Image from "next/image"; // IMPORT PENTING: Untuk optimasi gambar LCP
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { formatRupiah } from "@/lib/client-utils";
 import { headers } from "next/headers";
 import dynamic from "next/dynamic";
@@ -73,6 +73,9 @@ export async function generateMetadata({ params } = {}) {
       data?.landing?.hero?.headline || data?.course?.name || "Detail Kursus",
     description:
       data?.landing?.hero?.customSubtitle || "Belajar skill baru hari ini.",
+    alternates: {
+      canonical: `/courses/${slug}`,
+    },
   };
 }
 
@@ -83,24 +86,13 @@ export default async function CourseLandingPage({ params, searchParams }) {
     return notFound();
   }
   const sParams = await searchParams;
-  const utmDefaults = {
-    utm_source: "website",
-    utm_medium: "landing",
-    utm_campaign: "direct",
+  const effectiveUtm = {
+    utm_source: sParams?.utm_source || "website",
+    utm_medium: sParams?.utm_medium || "landing",
+    utm_campaign: sParams?.utm_campaign || "direct",
+    utm_term: sParams?.utm_term || null,
+    utm_content: sParams?.utm_content || null,
   };
-  const hasUtm =
-    sParams?.utm_source || sParams?.utm_medium || sParams?.utm_campaign;
-  if (!hasUtm) {
-    const query = new URLSearchParams(
-      Object.entries(sParams || {}).filter(
-        ([, value]) => value !== undefined && value !== null && value !== "",
-      ),
-    );
-    Object.entries(utmDefaults).forEach(([key, value]) => {
-      if (!query.get(key)) query.set(key, value);
-    });
-    redirect(`/courses/${slug}?${query.toString()}`);
-  }
 
   const [dataBySlug, user, settings] = await Promise.all([
     getCourseDetail(slug),
@@ -121,9 +113,9 @@ export default async function CourseLandingPage({ params, searchParams }) {
       const trackResult = await trackPageView({
         landingId: data.landing._id,
         itemId: data.course._id,
-        utmSource: sParams.utm_source,
-        utmMedium: sParams.utm_medium,
-        utmCampaign: sParams.utm_campaign,
+        utmSource: effectiveUtm.utm_source,
+        utmMedium: effectiveUtm.utm_medium,
+        utmCampaign: effectiveUtm.utm_campaign,
         pageUrl: `/courses/${slug}`,
         userAgent: headerList.get("user-agent"),
       });
@@ -138,11 +130,11 @@ export default async function CourseLandingPage({ params, searchParams }) {
 
   // --- 1. DATA PREPARATION & SANITIZATION ---
   const utmData = {
-    utm_source: sParams.utm_source || null,
-    utm_medium: sParams.utm_medium || null,
-    utm_campaign: sParams.utm_campaign || null,
-    utm_term: sParams.utm_term || null,
-    utm_content: sParams.utm_content || null,
+    utm_source: effectiveUtm.utm_source,
+    utm_medium: effectiveUtm.utm_medium,
+    utm_campaign: effectiveUtm.utm_campaign,
+    utm_term: effectiveUtm.utm_term,
+    utm_content: effectiveUtm.utm_content,
   };
 
   const heroData = {

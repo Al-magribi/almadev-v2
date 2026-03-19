@@ -15,6 +15,39 @@ const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
 const serializeData = (data) => JSON.parse(JSON.stringify(data));
 
+const NON_DELETABLE_TRANSACTION_STATUSES = new Set(["failed", "expired"]);
+
+const normalizePhoneNumber = (value = "") => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  if (digits.startsWith("8")) return `62${digits}`;
+  return digits;
+};
+
+const getPhoneCandidates = (value = "") => {
+  const normalized = normalizePhoneNumber(value);
+  if (!normalized) return [];
+
+  const variants = new Set([normalized]);
+  if (normalized.startsWith("628")) {
+    variants.add(`0${normalized.slice(2)}`);
+  }
+
+  return Array.from(variants);
+};
+
+const findUserByCheckoutIdentity = async ({ email, phone }) => {
+  const userByEmail = email ? await User.findOne({ email }) : null;
+  const phoneCandidates = getPhoneCandidates(phone);
+  const userByPhone = phoneCandidates.length
+    ? await User.findOne({ phone: { $in: phoneCandidates } })
+    : null;
+
+  return { userByEmail, userByPhone };
+};
+
 const getMidtransApiBaseUrl = (settings) => {
   const rawBase = (settings?.midtransBaseUrl || "").trim();
   if (rawBase.includes("app.sandbox.midtrans.com")) {
@@ -69,14 +102,103 @@ export async function deleteTransactionByAdmin(transactionId) {
       return { success: false, error: "transactionId wajib diisi." };
     }
 
-    const deleted = await Transaction.findByIdAndDelete(transactionId);
-    if (!deleted) {
+    const existing = await Transaction.findById(transactionId)
+      .select("status")
+      .lean();
+
+    if (!existing) {
       return { success: false, error: "Transaksi tidak ditemukan." };
     }
+
+    if (NON_DELETABLE_TRANSACTION_STATUSES.has(existing.status)) {
+      return {
+        success: false,
+        error:
+          "Transaksi dengan status failed atau expired harus tetap disimpan.",
+      };
+    }
+
+    await Transaction.findByIdAndDelete(transactionId);
 
     return { success: true };
   } catch (error) {
     console.error("Error deleting transaction:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function validateCourseCheckoutAccess(payload) {
+  await dbConnect();
+
+  try {
+    const email = (payload?.email || "").trim().toLowerCase();
+    const phone = normalizePhoneNumber(payload?.phone || "");
+    const courseId = payload?.courseId;
+
+    if (!email) {
+      return { success: false, error: "Email wajib diisi." };
+    }
+
+    if (!phone) {
+      return { success: false, error: "Nomor WhatsApp wajib diisi." };
+    }
+
+    if (!courseId) {
+      return { success: false, error: "Course tidak valid." };
+    }
+
+    const { userByEmail, userByPhone } = await findUserByCheckoutIdentity({
+      email,
+      phone,
+    });
+
+    if (
+      userByEmail &&
+      userByPhone &&
+      String(userByEmail._id) !== String(userByPhone._id)
+    ) {
+      return {
+        success: false,
+        error:
+          "Email dan nomor WhatsApp sudah terdaftar pada akun yang berbeda. Gunakan email/nomor yang sesuai.",
+      };
+    }
+
+    const user = userByEmail || userByPhone;
+    if (!user) {
+      return { success: true, alreadyPurchased: false, normalizedPhone: phone };
+    }
+
+    if (user.email !== email) {
+      return {
+        success: false,
+        error: "Email tidak cocok dengan akun yang menggunakan nomor ini.",
+      };
+    }
+
+    if (normalizePhoneNumber(user.phone) !== phone) {
+      return {
+        success: false,
+        error: "Nomor WhatsApp tidak cocok dengan akun yang menggunakan email ini.",
+      };
+    }
+
+    const existingPurchase = await Transaction.findOne({
+      userId: user._id,
+      itemType: "Course",
+      itemId: courseId,
+      status: "completed",
+    })
+      .select("_id")
+      .lean();
+
+    return {
+      success: true,
+      alreadyPurchased: Boolean(existingPurchase),
+      normalizedPhone: phone,
+    };
+  } catch (error) {
+    console.error("validateCourseCheckoutAccess error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -404,7 +526,7 @@ export async function createPayment(payload) {
     // ============ A) VALIDASI INPUT ============
     const name = (payload.userName || "").trim();
     const email = (payload.userEmail || "").trim().toLowerCase();
-    const phone = (payload.phone || "").trim();
+    const phone = normalizePhoneNumber(payload.phone || "");
 
     const itemType = payload.itemType; // "Course" | "Product"
     const itemId = payload.itemId;
@@ -436,8 +558,10 @@ export async function createPayment(payload) {
     }
 
     // ============ B) CEK EMAIL & PHONE ============
-    const userByEmail = await User.findOne({ email });
-    const userByPhone = await User.findOne({ phone });
+    const { userByEmail, userByPhone } = await findUserByCheckoutIdentity({
+      email,
+      phone,
+    });
 
     if (
       userByEmail &&
@@ -459,7 +583,7 @@ export async function createPayment(payload) {
           "Email tidak cocok dengan akun yang menggunakan nomor ini.",
         );
       }
-      if (user.phone !== phone) {
+      if (normalizePhoneNumber(user.phone) !== phone) {
         throw new Error(
           "Nomor WhatsApp tidak cocok dengan akun yang menggunakan email ini.",
         );
@@ -484,6 +608,23 @@ export async function createPayment(payload) {
         isAutoCreated: true,
       });
       autoCreatedUser = true;
+    }
+
+    if (itemType === "Course") {
+      const existingPurchase = await Transaction.findOne({
+        userId: user._id,
+        itemType: "Course",
+        itemId,
+        status: "completed",
+      })
+        .select("transactionCode")
+        .lean();
+
+      if (existingPurchase) {
+        throw new Error(
+          "Email dan nomor WhatsApp ini sudah terdaftar membeli course yang sama. Anda tidak bisa membeli course ini lagi.",
+        );
+      }
     }
 
     // ============ D) BUAT TRANSAKSI PENDING ============

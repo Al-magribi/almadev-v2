@@ -12,6 +12,15 @@ export const metadata = {
   },
 };
 
+const normalizePhone = (value = "") => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  if (digits.startsWith("8")) return `62${digits}`;
+  return digits;
+};
+
 export default async function CheckoutPage({ searchParams }) {
   // 1. Ambil data dari URL
   const query = await searchParams;
@@ -48,7 +57,7 @@ export default async function CheckoutPage({ searchParams }) {
       id: sessionUser?.id || "guest",
       name: sessionUser?.name || name,
       email: sessionUser?.email || email,
-      phone: sessionUser?.phone || phone,
+      phone: normalizePhone(sessionUser?.phone || phone),
     };
 
     const item = {
@@ -108,7 +117,7 @@ export default async function CheckoutPage({ searchParams }) {
     id: sessionUser?.id || "guest", // Jika guest, nanti di backend handle logic create user/guest
     name: sessionUser?.name || name,
     email: sessionUser?.email || email,
-    phone: sessionUser?.phone || phone,
+    phone: normalizePhone(sessionUser?.phone || phone),
   };
 
   // 5. Siapkan Item Object yang sudah diverifikasi harganya

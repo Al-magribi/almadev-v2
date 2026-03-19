@@ -5,8 +5,8 @@ import Link from "next/link";
 export default function CourseCard({ title, price, image, slug, category }) {
   const searchParams = new URLSearchParams({
     utm_source: "website",
-    utm_medium: "card_click",
-    utm_campaign: "course_browse",
+    utm_medium: "landing",
+    utm_campaign: "direct",
   });
 
   return (

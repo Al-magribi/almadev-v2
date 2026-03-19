@@ -2,21 +2,7 @@ import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
 import Product from "@/models/Product";
 import Setting from "@/models/Setting";
-
-const FALLBACK_BASE_URL = "https://jadidalmagribi.com";
-
-function normalizeBaseUrl(domain) {
-  const raw = String(domain || "").trim();
-  if (!raw) return FALLBACK_BASE_URL;
-
-  try {
-    return raw.startsWith("http://") || raw.startsWith("https://")
-      ? new URL(raw).toString().replace(/\/$/, "")
-      : new URL(`https://${raw}`).toString().replace(/\/$/, "");
-  } catch {
-    return FALLBACK_BASE_URL;
-  }
-}
+import { normalizeBaseUrl } from "@/lib/seo";
 
 function slugify(value = "") {
   return String(value || "")

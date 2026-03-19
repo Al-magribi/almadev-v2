@@ -3,9 +3,9 @@ import { Toaster } from "react-hot-toast";
 import { Fira_Sans, Fira_Code } from "next/font/google";
 import { ThemeProvider } from "@/components/provider/ThemeProvider"; // Pastikan path import benar
 import { getSettings } from "@/actions/setting-actions";
+import { buildSeoPayload } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-const FALLBACK_BASE_URL = "https://jadidalmagribi.com";
 
 const firaSans = Fira_Sans({
   subsets: ["latin"],
@@ -17,63 +17,6 @@ const firaCode = Fira_Code({
   subsets: ["latin"],
   variable: "--font-fira-code",
 });
-
-function normalizeBaseUrl(domain) {
-  const raw = String(domain || "").trim();
-
-  if (!raw) {
-    return FALLBACK_BASE_URL;
-  }
-
-  try {
-    return raw.startsWith("http://") || raw.startsWith("https://")
-      ? new URL(raw).toString().replace(/\/$/, "")
-      : new URL(`https://${raw}`).toString().replace(/\/$/, "");
-  } catch {
-    return FALLBACK_BASE_URL;
-  }
-}
-
-function resolveUrl(baseUrl, candidate, fallbackPath = "/") {
-  const raw = String(candidate || "").trim();
-  const safePath = String(fallbackPath || "/");
-
-  if (!raw) {
-    return new URL(safePath, baseUrl).toString();
-  }
-
-  try {
-    return new URL(raw, baseUrl).toString();
-  } catch {
-    return new URL(safePath, baseUrl).toString();
-  }
-}
-
-function buildSeoPayload(settings = {}) {
-  const baseUrl = normalizeBaseUrl(settings?.domain);
-  const websiteName = (settings?.websiteName || "ALMADEV").trim();
-  const seoTitle = (settings?.seoTitle || websiteName || "ALMADEV").trim();
-  const seoDescription = (
-    settings?.seoDescription ||
-    "Platform belajar pemrograman JavaScript Full Stack berstandar industri."
-  ).trim();
-  const seoKeywords = String(settings?.seoKeywords || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const faviconUrl = resolveUrl(baseUrl, settings?.websiteFavicon, "/favicon.ico");
-  const logoUrl = resolveUrl(baseUrl, settings?.websiteLogo, "/logo.svg");
-
-  return {
-    baseUrl,
-    websiteName,
-    seoTitle,
-    seoDescription,
-    seoKeywords,
-    faviconUrl,
-    logoUrl,
-  };
-}
 
 export async function generateMetadata() {
   const settings = await getSettings();
@@ -87,9 +30,6 @@ export async function generateMetadata() {
     },
     description: seo.seoDescription,
     keywords: seo.seoKeywords,
-    alternates: {
-      canonical: "/",
-    },
     icons: {
       icon: [
         { url: seo.faviconUrl },

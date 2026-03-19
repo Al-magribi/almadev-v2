@@ -7,6 +7,9 @@ export const metadata = {
   title: "Bootcamp JavaScript Full Stack Web Developer | ALMADEV",
   description:
     "Transformasi karir Anda dalam 3 bulan. Kuasai React JS, Node.js, dan Database dengan proyek riil berstandar industri bersama Mujaddid Al Magribi.",
+  alternates: {
+    canonical: "/bootcamp",
+  },
   keywords: [
     "bootcamp coding",
     "full stack developer",
@@ -17,7 +20,7 @@ export const metadata = {
   openGraph: {
     title: "Bootcamp JavaScript Full Stack Web Developer | ALMADEV",
     description: "Program intensif Build & Deploy. Daftar Batch 1 sekarang!",
-    url: "https://jadidalmagribi.com/bootcamp", // Sesuaikan dengan domain Anda
+    url: "/bootcamp",
     siteName: "ALMADEV",
     images: [
       {

@@ -60,6 +60,8 @@ export async function POST(req) {
       return NextResponse.json({ message: "OK" });
     }
 
+    const previousStatus = trx.status;
+
     const itemName =
       trx?.item?.name || trx?.item?.title || trx.itemName || "Pesanan Anda";
 
@@ -155,8 +157,18 @@ export async function POST(req) {
             ? "expired"
             : "cancelled";
 
+      await Transaction.updateOne(
+        { _id: trx._id },
+        {
+          $set: {
+            status: normalized,
+            ...midtransUpdate,
+          },
+        },
+      );
+
       // email gagal/cancel/expired
-      if (customerEmail) {
+      if (customerEmail && normalized !== previousStatus) {
         await sendPaymentEmail({
           to: customerEmail,
           name: customerName,
@@ -165,19 +177,6 @@ export async function POST(req) {
           itemName,
           amount: trx.price,
         });
-      }
-
-      // hapus transaksi
-      await Transaction.deleteOne({ _id: trx._id });
-
-      // jika user auto-created & tidak ada transaksi lain, hapus user juga
-      if (trx.autoCreatedUser) {
-        const remaining = await Transaction.countDocuments({
-          userId: trx.userId,
-        });
-        if (remaining === 0) {
-          await User.deleteOne({ _id: trx.userId, isAutoCreated: true });
-        }
       }
 
       if (trx.itemType === "BootcampParticipant") {

@@ -16,6 +16,9 @@ export async function generateMetadata({ params }) {
     description:
       product?.description ||
       "Produk digital siap pakai untuk mempercepat karir Anda.",
+    alternates: {
+      canonical: `/products/${productId}`,
+    },
   };
 }
 

@@ -4,6 +4,17 @@ import { X, User, Mail, Phone, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { initFacebookPixel, trackFacebookEvent } from "@/lib/facebook-pixel";
+import toast from "react-hot-toast";
+import { validateCourseCheckoutAccess } from "@/actions/transaction-actions";
+
+const normalizePhone = (value = "") => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return digits;
+  if (digits.startsWith("0")) return `62${digits.slice(1)}`;
+  if (digits.startsWith("8")) return `62${digits}`;
+  return digits;
+};
 
 export default function CheckoutModal({
   isOpen,
@@ -19,10 +30,11 @@ export default function CheckoutModal({
   metaPixelId,
 }) {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    phone: user?.phone || "",
+    phone: normalizePhone(user?.phone || ""),
   });
 
   const clearCheckoutLock = () => {
@@ -33,56 +45,85 @@ export default function CheckoutModal({
       "checkout_locked=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    clearCheckoutLock();
+    setLoading(true);
 
-    const normalizedType = itemType || "Course";
-    const effectiveId = itemId || courseId;
-    const selectedPlanName =
-      planData?.name ||
-      planName ||
-      (normalizedType === "Product" ? "Produk Digital" : "Online Course");
+    try {
+      clearCheckoutLock();
 
-    const pixelId = String(metaPixelId || "").trim();
-    if (pixelId) {
-      const storageKey = `fb_initiate_checkout_${String(effectiveId || "")}`;
-      try {
-        if (sessionStorage.getItem(storageKey) !== "1") {
-          initFacebookPixel(pixelId);
-          trackFacebookEvent("InitiateCheckout", {
-            content_ids: [String(effectiveId || "")],
-            content_name: selectedPlanName,
-            content_type: normalizedType === "Product" ? "product" : "course",
-            currency: "IDR",
-            value: Number(planData?.price ?? courseData?.price ?? 0),
-            num_items: 1,
-          });
-          sessionStorage.setItem(storageKey, "1");
+      const normalizedPhone = normalizePhone(formData.phone);
+      const normalizedEmail = String(formData.email || "").trim().toLowerCase();
+
+      const normalizedType = itemType || "Course";
+      const effectiveId = itemId || courseId;
+      const selectedPlanName =
+        planData?.name ||
+        planName ||
+        (normalizedType === "Product" ? "Produk Digital" : "Online Course");
+
+      if (normalizedType === "Course") {
+        const eligibility = await validateCourseCheckoutAccess({
+          email: normalizedEmail,
+          phone: normalizedPhone,
+          courseId: effectiveId,
+        });
+
+        if (!eligibility?.success) {
+          toast.error(eligibility?.error || "Gagal memvalidasi checkout.");
+          return;
         }
-      } catch {}
+
+        if (eligibility?.alreadyPurchased) {
+          toast.error("Kamu sudah beli kursus ini");
+          return;
+        }
+      }
+
+      const pixelId = String(metaPixelId || "").trim();
+      if (pixelId) {
+        const storageKey = `fb_initiate_checkout_${String(effectiveId || "")}`;
+        try {
+          if (sessionStorage.getItem(storageKey) !== "1") {
+            initFacebookPixel(pixelId);
+            trackFacebookEvent("InitiateCheckout", {
+              content_ids: [String(effectiveId || "")],
+              content_name: selectedPlanName,
+              content_type: normalizedType === "Product" ? "product" : "course",
+              currency: "IDR",
+              value: Number(planData?.price ?? courseData?.price ?? 0),
+              num_items: 1,
+            });
+            sessionStorage.setItem(storageKey, "1");
+          }
+        } catch {}
+      }
+
+      const params = new URLSearchParams();
+      params.set("itemType", normalizedType);
+      if (normalizedType === "Product") {
+        params.set("productId", effectiveId);
+      } else {
+        params.set("courseId", effectiveId);
+      }
+      params.set("planName", selectedPlanName);
+      params.set("name", formData.name);
+      params.set("email", normalizedEmail);
+      params.set("phone", normalizedPhone);
+
+      if (utmData?.utm_source) params.set("utm_source", utmData.utm_source);
+      if (utmData?.utm_medium) params.set("utm_medium", utmData.utm_medium);
+      if (utmData?.utm_campaign)
+        params.set("utm_campaign", utmData.utm_campaign);
+      if (utmData?.utm_term) params.set("utm_term", utmData.utm_term);
+      if (utmData?.utm_content) params.set("utm_content", utmData.utm_content);
+
+      router.push(`/checkout?${params.toString()}`);
+    } catch (error) {
+      toast.error(error?.message || "Terjadi kesalahan saat checkout.");
+    } finally {
+      setLoading(false);
     }
-
-    // Construct Query Params
-    const params = new URLSearchParams();
-    params.set("itemType", normalizedType);
-    if (normalizedType === "Product") {
-      params.set("productId", effectiveId);
-    } else {
-      params.set("courseId", effectiveId);
-    }
-    params.set("planName", selectedPlanName);
-    params.set("name", formData.name);
-    params.set("email", formData.email);
-    params.set("phone", formData.phone);
-
-    if (utmData?.utm_source) params.set("utm_source", utmData.utm_source);
-    if (utmData?.utm_medium) params.set("utm_medium", utmData.utm_medium);
-    if (utmData?.utm_campaign) params.set("utm_campaign", utmData.utm_campaign);
-    if (utmData?.utm_term) params.set("utm_term", utmData.utm_term);
-    if (utmData?.utm_content) params.set("utm_content", utmData.utm_content);
-
-    router.push(`/checkout?${params.toString()}`);
   };
 
   return (
@@ -171,6 +212,12 @@ export default function CheckoutModal({
                     onChange={(e) =>
                       setFormData({ ...formData, phone: e.target.value })
                     }
+                    onBlur={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        phone: normalizePhone(prev.phone),
+                      }))
+                    }
                     placeholder='62812xxxxxx'
                     className='w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all'
                   />
@@ -179,9 +226,11 @@ export default function CheckoutModal({
 
               <button
                 type='submit'
+                disabled={loading}
                 className='w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-5 rounded-2xl mt-6 flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-200'
               >
-                Konfirmasi Data <ArrowRight size={18} />
+                {loading ? "Memproses..." : "Konfirmasi Data"}
+                {!loading && <ArrowRight size={18} />}
               </button>
             </form>
           </div>

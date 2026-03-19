@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, Clock, XCircle, ArrowLeft, LogIn } from "lucide-react";
 import Link from "next/link";
@@ -14,10 +14,11 @@ export default function StatusPageClient({
   transaction,
 }) {
   const router = useRouter();
+  const [currentTransaction, setCurrentTransaction] = useState(transaction);
   const params = searchParams || {};
   const orderId = params.order_id;
   const statusCode = params.status_code;
-  const trxStatus = transaction?.status;
+  const trxStatus = currentTransaction?.status;
 
   const isSuccess = statusCode === "200" || trxStatus === "completed";
   const isPending = statusCode === "201" || trxStatus === "pending";
@@ -39,6 +40,10 @@ export default function StatusPageClient({
   };
 
   useEffect(() => {
+    setCurrentTransaction(transaction);
+  }, [transaction]);
+
+  useEffect(() => {
     if (!orderId) return;
 
     const lockKey = getStatusLockKey(orderId);
@@ -49,7 +54,19 @@ export default function StatusPageClient({
       return;
     }
 
-    syncTransactionStatus(orderId).catch(() => {});
+    syncTransactionStatus(orderId)
+      .then((result) => {
+        if (!result?.success) return;
+        setCurrentTransaction((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: result.data?.status || prev.status,
+              }
+            : prev,
+        );
+      })
+      .catch(() => {});
   }, [orderId, router]);
 
   useEffect(() => {
@@ -66,20 +83,20 @@ export default function StatusPageClient({
       event_id: orderId,
     };
 
-    if (transaction?.itemId) {
-      payload.content_ids = [String(transaction.itemId)];
+    if (currentTransaction?.itemId) {
+      payload.content_ids = [String(currentTransaction.itemId)];
     }
-    if (transaction?.itemName) {
-      payload.content_name = transaction.itemName;
+    if (currentTransaction?.itemName) {
+      payload.content_name = currentTransaction.itemName;
     }
-    if (transaction?.itemType) {
+    if (currentTransaction?.itemType) {
       payload.content_type =
-        transaction.itemType === "Product" ? "product" : "course";
+        currentTransaction.itemType === "Product" ? "product" : "course";
     }
 
     trackFacebookEvent("Purchase", payload);
     hasTrackedPurchase.current = true;
-  }, [isSuccess, metaPixelId, orderId, transaction]);
+  }, [currentTransaction, isSuccess, metaPixelId, orderId]);
 
   const handleExit = (target) => {
     if (orderId) {
