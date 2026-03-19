@@ -5,6 +5,7 @@ import dbConnect from "@/lib/db";
 import Landing from "@/models/Landing";
 import Qna from "@/models/Qna";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import {
   createCourseSchema,
   deleteFile,
@@ -16,6 +17,10 @@ import { getCurrentUser } from "@/lib/auth-service";
 import Editor from "@/models/Editor";
 import Note from "@/models/Note";
 import Course from "@/models/Course";
+import {
+  ensureOfferSessionKey,
+  resolveCourseOfferStates,
+} from "@/lib/course-offer";
 
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
@@ -65,6 +70,11 @@ export async function getCourses() {
   await dbConnect();
   try {
     const courses = await Course.find({}).sort({ createdAt: -1 }).lean();
+    const landings = await Landing.find({
+      courseId: { $in: courses.map((course) => course._id) },
+    })
+      .select("courseId instructor.customStudents testimonials.items")
+      .lean();
 
     const participantStats = await Transaction.aggregate([
       {
@@ -90,6 +100,9 @@ export async function getCourses() {
     const participantsByCourseId = new Map(
       participantStats.map((item) => [String(item._id), item.participantsCount]),
     );
+    const landingByCourseId = new Map(
+      landings.map((landing) => [String(landing.courseId), landing]),
+    );
 
     // --- PERBAIKAN: DEEP SANITIZATION ---
     // Menggunakan JSON.parse(JSON.stringify()) memaksa seluruh data
@@ -99,8 +112,43 @@ export async function getCourses() {
 
     return plainCourses.map((course) => ({
       ...course,
-      slug: buildCourseSlug(course),
-      participantsCount: participantsByCourseId.get(String(course._id)) || 0,
+      ...(function buildDisplayStats() {
+        const landing = landingByCourseId.get(String(course._id));
+        const activeTestimonials = (landing?.testimonials?.items || []).filter(
+          (item) =>
+            item?.isActive !== false &&
+            Number.isFinite(Number(item?.rating || 0)),
+        );
+        const totalRatingFromTestimonials = activeTestimonials.reduce(
+          (sum, item) =>
+            sum + Math.max(0, Math.min(5, Number(item?.rating) || 0)),
+          0,
+        );
+        const computedTestimonialRating =
+          activeTestimonials.length > 0
+            ? totalRatingFromTestimonials / activeTestimonials.length
+            : 0;
+        const participantsCount =
+          participantsByCourseId.get(String(course._id)) || 0;
+        const manualStudents = Math.max(
+          0,
+          Number(landing?.instructor?.customStudents) || 0,
+        );
+        const studentsCount = manualStudents + participantsCount;
+        const rating =
+          Number(
+            computedTestimonialRating > 0
+              ? computedTestimonialRating.toFixed(1)
+              : Number(course?.rating || 0).toFixed(1),
+          ) || 4.8;
+
+        return {
+          slug: buildCourseSlug(course),
+          participantsCount,
+          studentsCount,
+          rating,
+        };
+      })(),
     }));
   } catch (error) {
     console.error("Fetch Error:", error);
@@ -271,6 +319,12 @@ export async function updateCourse(courseId, formData) {
         promoText: item?.promoText || "",
         buttonText: item?.buttonText || "",
         price: Number(item?.price) || 0,
+        offerCountdown: String(item?.offerCountdown || "").trim(),
+        offerIncreaseAmount: Math.max(
+          0,
+          Number(item?.offerIncreaseAmount) || 0,
+        ),
+        offerMaxIncreases: Math.max(0, Number(item?.offerMaxIncreases) || 0),
         benefits: Array.isArray(item?.benefits)
           ? item.benefits.filter((benefit) => benefit)
           : [],
@@ -460,6 +514,41 @@ export async function getCourseDetail(courseIdentifier) {
   } catch (error) {
     console.error("Get Detail Error:", error);
     return null;
+  }
+}
+
+export async function getCoursePricingOffers(courseId) {
+  await dbConnect();
+
+  try {
+    if (!courseId) {
+      return { success: false, message: "Course tidak valid." };
+    }
+
+    const landing = await Landing.findOne({ courseId })
+      .select("pricing.items")
+      .lean();
+
+    const plans = landing?.pricing?.items || [];
+    const cookieStore = await cookies();
+    const sessionKey = await ensureOfferSessionKey(cookieStore);
+    const states = await resolveCourseOfferStates({
+      courseId,
+      plans,
+      sessionKey,
+      now: new Date(),
+    });
+
+    return {
+      success: true,
+      data: states,
+    };
+  } catch (error) {
+    console.error("getCoursePricingOffers error:", error);
+    return {
+      success: false,
+      message: error.message || "Gagal mengambil pricing offer.",
+    };
   }
 }
 

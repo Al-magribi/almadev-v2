@@ -27,6 +27,9 @@ const PricingItemSchema = new mongoose.Schema({
   promoText: { type: String }, // Contoh: "Promo Ramadan"
   buttonText: { type: String }, // Nama custom untuk tombol checkout
   price: { type: Number, required: true },
+  offerCountdown: { type: String, default: "" }, // Format HH:mm, contoh "08:00"
+  offerIncreaseAmount: { type: Number, default: 0 }, // Nilai kenaikan tiap siklus
+  offerMaxIncreases: { type: Number, default: 0 }, // Maks jumlah kenaikan
   benefits: [{ type: String }], // Array text untuk list benefit
   isRecommended: { type: Boolean, default: false }, // Opsi untuk highlight paket
   isActive: { type: Boolean, default: true },

@@ -106,6 +106,9 @@ export default function CheckoutModal({
       } else {
         params.set("courseId", effectiveId);
       }
+      if (normalizedType === "Course" && planData?._id) {
+        params.set("planId", String(planData._id));
+      }
       params.set("planName", selectedPlanName);
       params.set("name", formData.name);
       params.set("email", normalizedEmail);

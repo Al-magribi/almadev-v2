@@ -120,6 +120,7 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
       const res = await createPayment({
         itemId: item._id,
         itemType: itemType,
+        planId: item.planId,
         itemName: item.name, // untuk email
         price: item.price,
         userName: user.name,

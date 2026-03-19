@@ -1,10 +1,10 @@
 import { getCourseDetail } from "@/actions/course-actions";
 import Image from "next/image"; // IMPORT PENTING: Untuk optimasi gambar LCP
 import { notFound } from "next/navigation";
-import { formatRupiah } from "@/lib/client-utils";
 import { headers } from "next/headers";
 import dynamic from "next/dynamic";
 import FacebookPixelPageView from "@/components/marketing/FacebookPixelPageView";
+import CoursePricingSection from "@/components/marketing/CoursePricingSection";
 
 // Lazy-load heavy client components to reduce initial JS and TBT
 const ProjectShowcase = dynamic(
@@ -25,7 +25,6 @@ import {
   CheckCircle2,
   Star,
   Users,
-  Award,
   ChevronDown,
   HelpCircle,
   Quote,
@@ -42,19 +41,6 @@ const CurriculumList = dynamic(
 );
 import { trackPageView } from "@/actions/dataview-actions";
 import { getCurrentUser } from "@/lib/auth-service";
-const PricingCardWrapper = dynamic(
-  () => import("@/components/marketing/checkout/PricingCardWrapper"),
-  {
-    loading: () => (
-      <button
-        disabled
-        className='block w-full py-4 text-center rounded-xl font-bold bg-slate-700 text-white opacity-70 cursor-not-allowed'
-      >
-        Memuat...
-      </button>
-    ),
-  },
-);
 import { getSettings } from "@/actions/setting-actions";
 
 // --- METADATA ---
@@ -169,14 +155,6 @@ export default async function CourseLandingPage({ params, searchParams }) {
     ...plan,
     _id: plan?._id?.toString?.() || "",
   }));
-  const minPricingValue = pricings.reduce((min, plan) => {
-    const value = Number(plan?.price);
-    if (!Number.isFinite(value)) return min;
-    return Math.min(min, value);
-  }, Number.POSITIVE_INFINITY);
-  const mobileStartingPrice = Number.isFinite(minPricingValue)
-    ? minPricingValue
-    : Number(course?.price) || 0;
   const faqs = landing?.faqs?.items || [];
 
   const safeUser = user
@@ -476,109 +454,17 @@ export default async function CourseLandingPage({ params, searchParams }) {
         </section>
       )}
 
-      {/* Pricing */}
-      <section id='pricing' className='py-24 bg-slate-900 text-white relative'>
-        <div className='absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-500px h-500px bg-violet-600/20 rounded-full blur-[120px] pointer-events-none' />
-
-        <div className='container mx-auto px-4 relative z-10'>
-          <div className='text-center max-w-2xl mx-auto mb-16'>
-            <h2 className='text-3xl md:text-4xl font-bold mb-4'>
-              {landing?.pricing?.customTitle || "Investasi Belajar Terbaik"}
-            </h2>
-            <p className='text-slate-400 text-lg'>
-              {landing?.pricing?.customSubtitle ||
-                "Pilih paket yang sesuai dengan kebutuhan Anda."}
-            </p>
-          </div>
-
-          <div
-            className={`grid gap-8 max-w-5xl mx-auto ${pricings.length === 1 ? "grid-cols-1 md:w-1/2" : "md:grid-cols-2 lg:grid-cols-3"}`}
-          >
-            {pricings.length >= 0 &&
-              pricings.map((plan, idx) => (
-                <div
-                  key={idx}
-                  className={`relative flex flex-col rounded-3xl p-8 transition-all duration-300 ${
-                    plan.isRecommended
-                      ? "bg-violet-600 text-white scale-105 shadow-2xl shadow-violet-900/50 border-0 z-10"
-                      : "bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600"
-                  }`}
-                >
-                  {plan.isRecommended && (
-                    <div className='absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg'>
-                      Rekomendasi
-                    </div>
-                  )}
-
-                  <h3
-                    className={`text-lg font-bold mb-2 ${plan.isRecommended ? "text-violet-100" : "text-slate-300"}`}
-                  >
-                    {plan.name}
-                  </h3>
-                  {plan.subtitle && (
-                    <p
-                      className={`text-sm mb-3 ${plan.isRecommended ? "text-violet-100/90" : "text-slate-400"}`}
-                    >
-                      {plan.subtitle}
-                    </p>
-                  )}
-                  {plan.promoText && (
-                    <div
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold mb-4 ${
-                        plan.isRecommended
-                          ? "bg-white/20 text-white border border-white/30"
-                          : "bg-amber-100 text-amber-800 border border-amber-200"
-                      }`}
-                    >
-                      {plan.promoText}
-                    </div>
-                  )}
-                  <div className='text-4xl font-extrabold mb-6'>
-                    {plan.price === 0 ? "Gratis" : formatRupiah(plan.price)}
-                  </div>
-
-                  <div
-                    className={`h-px w-full mb-6 ${plan.isRecommended ? "bg-violet-500" : "bg-slate-700"}`}
-                  />
-
-                  <ul className='space-y-4 mb-8 flex-1'>
-                    {plan.benefits?.map((benefit, bIdx) => (
-                      <li key={bIdx} className='flex gap-3 text-sm'>
-                        <CheckCircle2
-                          size={18}
-                          className={`${plan.isRecommended ? "text-white" : "text-violet-400"} shrink-0`}
-                        />
-                        <span
-                          className={
-                            plan.isRecommended
-                              ? "text-violet-50"
-                              : "text-slate-300"
-                          }
-                        >
-                          {benefit}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <PricingCardWrapper
-                    plan={plan}
-                    courseId={courseIdForClient}
-                    planIndex={idx}
-                    user={safeUser}
-                    courseData={{
-                      name: course.name,
-                      price: plan.price,
-                      image: course.image,
-                    }}
-                    utmData={utmData}
-                    metaPixelId={metaPixelId}
-                  />
-                </div>
-              ))}
-          </div>
-        </div>
-      </section>
+      <CoursePricingSection
+        courseId={courseIdForClient}
+        courseName={course.name}
+        courseImage={course.image}
+        title={landing?.pricing?.customTitle}
+        subtitle={landing?.pricing?.customSubtitle}
+        plans={pricings}
+        user={safeUser}
+        utmData={utmData}
+        metaPixelId={metaPixelId}
+      />
 
       {/* FAQ */}
       {faqs.length > 0 && (
@@ -610,23 +496,6 @@ export default async function CourseLandingPage({ params, searchParams }) {
         </section>
       )}
 
-      {/* Sticky Mobile CTA */}
-      <div className='fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 md:hidden z-50 flex items-center justify-between shadow-[0_-5px_20px_rgba(0,0,0,0.05)]'>
-        <div>
-          <p className='text-xs text-slate-500 uppercase font-bold'>
-            Mulai dari
-          </p>
-          <p className='text-lg font-bold text-violet-600'>
-            {formatRupiah(mobileStartingPrice)}
-          </p>
-        </div>
-        <a
-          href='#pricing'
-          className='bg-violet-600 text-white px-6 py-3 rounded-lg font-bold text-sm shadow-lg shadow-violet-600/30'
-        >
-          Beli Sekarang
-        </a>
-      </div>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 export default function PricingCardWrapper({
   plan,
   courseId,
-  planIndex,
   user,
   courseData,
   utmData,

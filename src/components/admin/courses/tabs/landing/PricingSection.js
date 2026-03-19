@@ -19,6 +19,14 @@ export default function PricingSection({
   const getPlanId = (plan, index) =>
     String(plan?._id || plan?.__tempId || `pricing-item-${index}`);
 
+  const formatThousands = (value) => {
+    const digits = String(value ?? "").replace(/\D/g, "");
+    if (!digits) return "";
+    return Number(digits).toLocaleString("id-ID");
+  };
+
+  const normalizeNumericInput = (value) => String(value ?? "").replace(/\D/g, "");
+
   return (
     <section className='bg-white dark:bg-zinc-900 p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-6'>
       <div className='flex items-center justify-between'>
@@ -144,15 +152,89 @@ export default function PricingSection({
                         <div className='flex items-center gap-2'>
                           <p className='text-zinc-400'>Rp</p>
                           <input
-                            type='number'
-                            value={plan.price}
+                            type='text'
+                            inputMode='numeric'
+                            value={formatThousands(plan.price)}
                             onChange={(e) =>
-                              updatePricingTier(i, "price", e.target.value)
+                              updatePricingTier(
+                                i,
+                                "price",
+                                normalizeNumericInput(e.target.value),
+                              )
                             }
                             placeholder='500000'
                             className='w-full bg-transparent border-b border-zinc-300 dark:border-zinc-700 focus:border-violet-500 px-0 py-1 font-mono text-lg focus:outline-none focus:ring-0'
                           />
                         </div>
+                      </div>
+
+                      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                        <div className='space-y-1'>
+                          <label className='text-xs font-semibold text-zinc-500 uppercase'>
+                            Timer Offer
+                          </label>
+                          <input
+                            value={plan.offerCountdown || ""}
+                            onChange={(e) =>
+                              updatePricingTier(
+                                i,
+                                "offerCountdown",
+                                e.target.value,
+                              )
+                            }
+                            placeholder='08:00'
+                            className='w-full bg-transparent border-b border-zinc-300 dark:border-zinc-700 focus:border-violet-500 px-0 py-1 font-mono text-sm focus:outline-none focus:ring-0'
+                          />
+                          <p className='text-[10px] text-zinc-400'>
+                            Format <strong>HH:mm</strong>. Kosong = tanpa timer.
+                          </p>
+                        </div>
+
+                        <div className='space-y-1'>
+                          <label className='text-xs font-semibold text-zinc-500 uppercase'>
+                            Kenaikan / Siklus
+                          </label>
+                          <div className='flex items-center gap-2'>
+                            <p className='text-zinc-400'>Rp</p>
+                            <input
+                              type='text'
+                              inputMode='numeric'
+                              value={formatThousands(plan.offerIncreaseAmount)}
+                              onChange={(e) =>
+                                updatePricingTier(
+                                  i,
+                                  "offerIncreaseAmount",
+                                  normalizeNumericInput(e.target.value),
+                                )
+                              }
+                              placeholder='50000'
+                              className='w-full bg-transparent border-b border-zinc-300 dark:border-zinc-700 focus:border-violet-500 px-0 py-1 font-mono text-sm focus:outline-none focus:ring-0'
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className='space-y-1'>
+                        <label className='text-xs font-semibold text-zinc-500 uppercase'>
+                          Maksimal Kenaikan
+                        </label>
+                        <input
+                          type='number'
+                          min='0'
+                          value={plan.offerMaxIncreases ?? 0}
+                          onChange={(e) =>
+                            updatePricingTier(
+                              i,
+                              "offerMaxIncreases",
+                              e.target.value,
+                            )
+                          }
+                          placeholder='3'
+                          className='w-full bg-transparent border-b border-zinc-300 dark:border-zinc-700 focus:border-violet-500 px-0 py-1 font-mono text-sm focus:outline-none focus:ring-0'
+                        />
+                        <p className='text-[10px] text-zinc-400'>
+                          Jika <strong>0</strong>, timer tidak aktif meski field lain diisi.
+                        </p>
                       </div>
 
                       <div className='space-y-1'>

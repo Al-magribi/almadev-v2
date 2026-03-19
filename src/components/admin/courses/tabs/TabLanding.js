@@ -25,6 +25,9 @@ export default function TabLanding({
       promoText: "",
       buttonText: "",
       price: 0,
+      offerCountdown: "",
+      offerIncreaseAmount: 0,
+      offerMaxIncreases: 0,
       benefits: ["Akses Selamanya", "Update Materi"],
       isRecommended: false,
     };

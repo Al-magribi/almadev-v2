@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowUpRight, Star } from "lucide-react";
+import { ArrowUpRight, Star, Users } from "lucide-react";
 import { getCourses } from "@/actions/course-actions";
 import { getSettings } from "@/actions/setting-actions";
 import { formatRupiah } from "@/lib/client-utils";
@@ -106,6 +106,14 @@ export default async function CoursesPage() {
                   <p className='text-sm text-slate-500 line-clamp-2'>
                     {course.description}
                   </p>
+
+                  <div className='flex items-center gap-3 text-sm text-slate-500'>
+                    <span className='inline-flex items-center gap-1.5'>
+                      <Users size={14} className='text-blue-500' />
+                      {(course.studentsCount || 0).toLocaleString("id-ID")}{" "}
+                      siswa
+                    </span>
+                  </div>
 
                   <div className='mt-auto flex items-center justify-between pt-4'>
                     <span className='text-lg font-extrabold text-slate-900'>

@@ -6,10 +6,13 @@ import Product from "@/models/Product";
 import User from "@/models/User";
 import Setting from "@/models/Setting";
 import BootcampParticipant from "@/models/BootcampParticipant";
+import Landing from "@/models/Landing";
 import dbConnect from "@/lib/db";
 import { customAlphabet } from "nanoid";
 import { sendPaymentEmail } from "@/lib/emailService";
 import { getCurrentUser } from "@/lib/auth-service";
+import { cookies } from "next/headers";
+import { getOfferSessionKey, resolveCourseOfferStates } from "@/lib/course-offer";
 
 const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
@@ -530,7 +533,8 @@ export async function createPayment(payload) {
 
     const itemType = payload.itemType; // "Course" | "Product"
     const itemId = payload.itemId;
-    const price = Number(payload.price);
+    let price = Number(payload.price);
+    const planId = payload?.planId ? String(payload.planId) : null;
 
     if (!name) throw new Error("Nama wajib diisi.");
     if (!email) throw new Error("Email wajib diisi.");
@@ -539,22 +543,48 @@ export async function createPayment(payload) {
       throw new Error("itemType wajib: Course atau Product.");
     }
     if (!itemId) throw new Error("itemId wajib diisi.");
-    if (!Number.isFinite(price) || price <= 0) {
-      throw new Error("Harga tidak valid.");
-    }
 
     // ambil itemName dari DB (biar akurat)
     let itemName = "Pesanan Anda";
     if (itemType === "Course") {
-      const course = await Course.findById(itemId).select("title name").lean();
+      const course = await Course.findById(itemId).select("title name price").lean();
       if (!course) throw new Error("Course tidak ditemukan.");
       itemName = course.title || course.name || itemName;
+      price = Number(course.price) || 0;
+
+      const landing = await Landing.findOne({ courseId: itemId })
+        .select("pricing.items")
+        .lean();
+      const pricingItems = landing?.pricing?.items || [];
+      const selectedPlan =
+        pricingItems.find((item) => String(item?._id) === planId) || null;
+
+      if (selectedPlan) {
+        const cookieStore = await cookies();
+        const sessionKey = await getOfferSessionKey(cookieStore);
+        const [offerState] = await resolveCourseOfferStates({
+          courseId: itemId,
+          plans: [selectedPlan],
+          sessionKey,
+          now: new Date(),
+        });
+
+        price = Number.isFinite(Number(offerState?.currentPrice))
+          ? Number(offerState.currentPrice)
+          : Number(selectedPlan.price) || 0;
+        itemName = `${course.title || course.name || "Course"} - ${selectedPlan.name}`;
+      }
     } else {
       const product = await Product.findById(itemId)
-        .select("title name")
+        .select("title name price")
         .lean();
       if (!product) throw new Error("Product tidak ditemukan.");
       itemName = product.title || product.name || itemName;
+      price = Number(product.price) || 0;
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error("Harga tidak valid.");
     }
 
     // ============ B) CEK EMAIL & PHONE ============

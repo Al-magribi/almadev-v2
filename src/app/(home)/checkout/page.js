@@ -3,6 +3,8 @@ import { getProductDetail } from "@/actions/product-actions";
 import { getSettings } from "@/actions/setting-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import Checkout from "@/components/marketing/checkout/Checkout"; // Sesuaikan path import
+import { getOfferSessionKey, resolveCourseOfferStates } from "@/lib/course-offer";
+import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
 export const metadata = {
@@ -28,6 +30,7 @@ export default async function CheckoutPage({ searchParams }) {
     itemType,
     courseId,
     productId,
+    planId,
     planName,
     name,
     email,
@@ -98,14 +101,27 @@ export default async function CheckoutPage({ searchParams }) {
 
   const { course, landing } = dataCourse;
 
-  // 3. Cari Pricing/Plan yang dipilih untuk mendapatkan harga ASLI
-  // Kita cari di array pricing landing page yang namanya cocok dengan planName
-  const selectedPlan = landing?.pricing?.items?.find(
-    (p) => p.name === planName,
-  );
+  const pricingItems = landing?.pricing?.items || [];
+  const selectedPlan =
+    pricingItems.find((p) => String(p?._id) === String(planId || "")) ||
+    pricingItems.find((p) => p.name === planName);
 
-  // Jika plan tidak ketemu (misal user edit URL), fallback ke harga default course
-  const realPrice = selectedPlan ? selectedPlan.price : course.price;
+  const cookieStore = await cookies();
+  const sessionKey = await getOfferSessionKey(cookieStore);
+  const [offerState] = selectedPlan
+    ? await resolveCourseOfferStates({
+        courseId,
+        plans: [selectedPlan],
+        sessionKey,
+        now: new Date(),
+      })
+    : [];
+
+  const realPrice = Number.isFinite(Number(offerState?.currentPrice))
+    ? Number(offerState.currentPrice)
+    : selectedPlan
+      ? selectedPlan.price
+      : course.price;
   const displayItemName = selectedPlan
     ? `${course.name} - ${selectedPlan.name}`
     : course.name;
@@ -126,7 +142,8 @@ export default async function CheckoutPage({ searchParams }) {
     name: displayItemName,
     price: realPrice, // INI HARGA AMAN DARI DB
     image: course.image || "/placeholder-course.jpg",
-    planName: planName, // Simpan info plan
+    planId: selectedPlan?._id?.toString?.() || null,
+    planName: selectedPlan?.name || planName, // Simpan info plan
     itemType: "Course",
   };
 
