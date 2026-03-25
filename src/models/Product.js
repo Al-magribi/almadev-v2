@@ -12,6 +12,8 @@ const productSchema = new mongoose.Schema(
     fileLink: { type: String }, // legacy link (optional)
     filePath: { type: String }, // uploaded file path
     videoLink: { type: String },
+    affiliateEnabled: { type: Boolean, default: true, index: true },
+    affiliateRewardAmount: { type: Number, default: 0, min: 0 },
     // Menambahkan field untuk menyimpan hasil perhitungan
     rating: { type: Number, default: 0 },
     totalReviews: { type: Number, default: 0 },

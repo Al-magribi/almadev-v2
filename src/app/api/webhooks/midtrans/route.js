@@ -7,6 +7,7 @@ import User from "@/models/User";
 import Setting from "@/models/Setting";
 import { sendPaymentEmail } from "@/lib/emailService";
 import BootcampParticipant from "@/models/BootcampParticipant";
+import { applyAffiliateConversionForTransaction } from "@/actions/transaction-actions";
 
 export async function GET() {
   return NextResponse.json({
@@ -97,6 +98,8 @@ export async function POST(req) {
           },
         },
       );
+
+      await applyAffiliateConversionForTransaction(trx._id);
 
       // aktifkan user (kalau kamu memang pakai isActive/isVerified)
       const userUpdate = { isActive: true, isVerified: true };

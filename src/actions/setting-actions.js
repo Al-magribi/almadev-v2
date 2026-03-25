@@ -18,8 +18,9 @@ import Note from "@/models/Note";
 import Progress from "@/models/Progress";
 import Project from "@/models/Project";
 import Qna from "@/models/Qna";
-import Referral from "@/models/Referral";
-import Reward from "@/models/Reward";
+import AffiliateVisit from "@/models/AffiliateVisit";
+import AffiliateCommission from "@/models/AffiliateCommission";
+import AffiliatePayout from "@/models/AffiliatePayout";
 import ViewData from "@/models/ViewData";
 
 // Helper serialize
@@ -137,8 +138,9 @@ export async function backupDatabase() {
       progresses,
       projects,
       qnas,
-      referrals,
-      rewards,
+      affiliateVisits,
+      affiliateCommissions,
+      affiliatePayouts,
       viewDatas,
     ] = await Promise.all([
       User.find().lean(),
@@ -154,8 +156,9 @@ export async function backupDatabase() {
       Progress.find().lean(),
       Project.find().lean(),
       Qna.find().lean(),
-      Referral.find().lean(),
-      Reward.find().lean(),
+      AffiliateVisit.find().lean(),
+      AffiliateCommission.find().lean(),
+      AffiliatePayout.find().lean(),
       ViewData.find().lean(),
     ]);
 
@@ -177,8 +180,9 @@ export async function backupDatabase() {
         progresses,
         projects,
         qnas,
-        referrals,
-        rewards,
+        affiliateVisits,
+        affiliateCommissions,
+        affiliatePayouts,
         viewDatas,
       },
     };
@@ -210,8 +214,9 @@ export async function restoreDatabase(jsonString) {
     progresses: Progress,
     projects: Project,
     qnas: Qna,
-    referrals: Referral,
-    rewards: Reward,
+    affiliateVisits: AffiliateVisit,
+    affiliateCommissions: AffiliateCommission,
+    affiliatePayouts: AffiliatePayout,
     viewDatas: ViewData,
   };
 

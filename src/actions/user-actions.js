@@ -101,10 +101,15 @@ export async function getUserProfile() {
 
     if (!user) return { success: false, error: "User tidak ditemukan" };
 
+    const serializedUser = JSON.parse(JSON.stringify(user));
+    if (serializedUser.role !== "admin") {
+      delete serializedUser.adminProfile;
+    }
+
     // Serialisasi data untuk dikirim ke Client Component
     return {
       success: true,
-      data: JSON.parse(JSON.stringify(user)),
+      data: serializedUser,
     };
   } catch (error) {
     console.error("Error fetching profile:", error);

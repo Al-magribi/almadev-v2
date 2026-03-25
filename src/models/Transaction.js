@@ -99,10 +99,39 @@ const transactionSchema = new mongoose.Schema(
     utmContent: { type: String },
 
     // =========================
-    // Referral tracking
+    // Affiliate attribution snapshot
     // =========================
-    referralCode: {
-      type: String,
+    completedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    affiliate: {
+      referrerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      referralCode: {
+        type: String,
+        default: null,
+        trim: true,
+      },
+      visitId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "AffiliateVisit",
+        default: null,
+      },
+      rewardAmount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      attributionModel: {
+        type: String,
+        enum: ["last_click"],
+        default: "last_click",
+      },
     },
 
     // =========================
@@ -236,6 +265,27 @@ const transactionSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    affiliateRefund: {
+      refundStatus: {
+        type: String,
+        enum: ["none", "partial", "full"],
+        default: "none",
+      },
+      refundAmount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      refundedAt: {
+        type: Date,
+        default: null,
+      },
+      commissionEffect: {
+        type: String,
+        enum: ["none", "void", "reverse_next_payout"],
+        default: "none",
+      },
+    },
   },
   {
     timestamps: true,
@@ -248,6 +298,8 @@ const transactionSchema = new mongoose.Schema(
 transactionSchema.index({ userId: 1, createdAt: -1 });
 transactionSchema.index({ itemType: 1, itemId: 1 });
 transactionSchema.index({ midtransOrderId: 1, status: 1 });
+transactionSchema.index({ "affiliate.referrerId": 1, createdAt: -1 });
+transactionSchema.index({ "affiliate.referralCode": 1, createdAt: -1 });
 
 // =========================
 // Virtuals

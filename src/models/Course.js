@@ -14,7 +14,8 @@ const courseSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     rating: { type: Number, default: 0 },
     totalReviews: { type: Number, default: 0 },
-    referralReward: { type: Number, default: 0 },
+    affiliateEnabled: { type: Boolean, default: true, index: true },
+    affiliateRewardAmount: { type: Number, default: 0, min: 0 },
     curriculum: [
       {
         title: { type: String },

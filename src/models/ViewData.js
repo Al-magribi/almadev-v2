@@ -14,6 +14,12 @@ const viewDataSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       required: true,
     },
+    itemType: {
+      type: String,
+      enum: ["Course", "Product"],
+      default: null,
+      index: true,
+    },
 
     // UTM tracking parameters
     utmSource: {
@@ -35,6 +41,25 @@ const viewDataSchema = new mongoose.Schema(
 
     utmContent: {
       type: String,
+    },
+    referralCode: {
+      type: String,
+      default: null,
+      trim: true,
+      uppercase: true,
+      index: true,
+    },
+    referrerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+    affiliateVisitId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AffiliateVisit",
+      default: null,
+      index: true,
     },
 
     // Visitor information
@@ -71,6 +96,8 @@ const viewDataSchema = new mongoose.Schema(
 viewDataSchema.index({ landingId: 1, createdAt: -1 });
 viewDataSchema.index({ itemId: 1, itemType: 1, createdAt: -1 });
 viewDataSchema.index({ utmSource: 1, createdAt: -1 });
+viewDataSchema.index({ referralCode: 1, createdAt: -1 });
+viewDataSchema.index({ referrerId: 1, createdAt: -1 });
 viewDataSchema.index({ createdAt: -1 });
 
 const ViewData =

@@ -40,6 +40,7 @@ export default async function CheckoutPage({ searchParams }) {
     utm_campaign,
     utm_term,
     utm_content,
+    ref,
   } = query;
 
   const settings = await getSettings();
@@ -83,6 +84,7 @@ export default async function CheckoutPage({ searchParams }) {
           utmCampaign: utm_campaign || null,
           utmTerm: utm_term || null,
           utmContent: utm_content || null,
+          referralCode: ref || null,
         }}
       />
     );
@@ -159,6 +161,7 @@ export default async function CheckoutPage({ searchParams }) {
         utmCampaign: utm_campaign || null,
         utmTerm: utm_term || null,
         utmContent: utm_content || null,
+        referralCode: ref || null,
       }}
     />
   );

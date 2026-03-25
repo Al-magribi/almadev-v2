@@ -1,17 +1,23 @@
-import { getCurrentUser } from "@/lib/auth-service";
+import { getUserProfile } from "@/actions/user-actions";
 import dbConnect from "@/lib/db";
 import { formatDate } from "@/lib/client-utils";
 import Course from "@/models/Course";
 import Progress from "@/models/Progress";
 import Transaction from "@/models/Transaction";
-import { PlayCircle, Clock, Trophy, TrendingUp, BookOpen } from "lucide-react";
+import {
+  PlayCircle,
+  Clock,
+  Trophy,
+  TrendingUp,
+  BookOpen,
+} from "lucide-react";
 import Link from "next/link";
 
 export default async function StudentDashboard() {
-  const user = await getCurrentUser();
+  const { success, data: user } = await getUserProfile();
   await dbConnect();
 
-  if (!user) {
+  if (!success || !user) {
     return (
       <div className='bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6'>
         <p className='text-gray-500 dark:text-gray-400 text-sm'>
@@ -22,6 +28,7 @@ export default async function StudentDashboard() {
   }
 
   const userId = user._id;
+  const isAccountActive = user?.isActive !== false;
 
   const [
     progressAgg,
@@ -191,8 +198,14 @@ export default async function StudentDashboard() {
         <div className='px-4 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 shadow-sm'>
           <TrendingUp className='w-4 h-4 text-green-500' />
           Status Akun:{" "}
-          <span className='text-green-600 dark:text-green-400 font-medium'>
-            {user?.isActive ? "Aktif" : "Nonaktif"}
+          <span
+            className={`font-medium ${
+              isAccountActive
+                ? "text-green-600 dark:text-green-400"
+                : "text-amber-600 dark:text-amber-400"
+            }`}
+          >
+            {isAccountActive ? "Aktif" : "Nonaktif"}
           </span>
         </div>
       </div>

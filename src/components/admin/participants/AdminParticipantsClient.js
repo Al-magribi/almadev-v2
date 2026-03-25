@@ -302,7 +302,7 @@ export default function AdminParticipantsClient({ students = [] }) {
           tab.id === "All"
             ? students.length
             : students.filter((student) =>
-                student.purchases.some((purchase) => purchase.itemType === tab.id),
+                student.purchases.some((purchase) => purchase.itemType === tab.id && purchase.status === "completed"),
               ).length;
         return acc;
       }, {}),
@@ -314,7 +314,7 @@ export default function AdminParticipantsClient({ students = [] }) {
       activeTab === "All"
         ? students
         : students.filter((student) =>
-            student.purchases.some((purchase) => purchase.itemType === activeTab),
+            student.purchases.some((purchase) => purchase.itemType === activeTab && purchase.status === "completed"),
           ),
     [activeTab, students],
   );
@@ -434,3 +434,4 @@ export default function AdminParticipantsClient({ students = [] }) {
     </div>
   );
 }
+

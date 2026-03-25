@@ -131,6 +131,7 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
         utmCampaign: utm?.utmCampaign,
         utmTerm: utm?.utmTerm,
         utmContent: utm?.utmContent,
+        referralCode: utm?.referralCode,
       });
 
       if (res.success && res.redirectUrl) {

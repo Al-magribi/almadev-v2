@@ -120,6 +120,7 @@ export default function CheckoutModal({
         params.set("utm_campaign", utmData.utm_campaign);
       if (utmData?.utm_term) params.set("utm_term", utmData.utm_term);
       if (utmData?.utm_content) params.set("utm_content", utmData.utm_content);
+      if (utmData?.referralCode) params.set("ref", utmData.referralCode);
 
       router.push(`/checkout?${params.toString()}`);
     } catch (error) {

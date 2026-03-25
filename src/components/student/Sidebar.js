@@ -8,6 +8,7 @@ import {
   Package,
   Receipt,
   User,
+  Share2,
   LogOut,
   X,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const menuItems = [
   { name: "Kursus Saya", href: "/student/my-courses", icon: BookOpen },
   { name: "Produk Saya", href: "/student/my-products", icon: Package },
   { name: "Transaksi", href: "/student/transactions", icon: Receipt },
+  { name: "Affiliate", href: "/student/affiliate", icon: Share2 },
   { name: "Profil Saya", href: "/student/profile", icon: User },
 ];
 

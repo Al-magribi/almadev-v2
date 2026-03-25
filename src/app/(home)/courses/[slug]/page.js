@@ -72,6 +72,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
     return notFound();
   }
   const sParams = await searchParams;
+  const referralCode = String(sParams?.ref || "").trim().toUpperCase() || null;
   const effectiveUtm = {
     utm_source: sParams?.utm_source || "website",
     utm_medium: sParams?.utm_medium || "landing",
@@ -99,11 +100,18 @@ export default async function CourseLandingPage({ params, searchParams }) {
       const trackResult = await trackPageView({
         landingId: data.landing._id,
         itemId: data.course._id,
+        itemType: "Course",
         utmSource: effectiveUtm.utm_source,
         utmMedium: effectiveUtm.utm_medium,
         utmCampaign: effectiveUtm.utm_campaign,
+        utmTerm: effectiveUtm.utm_term,
+        utmContent: effectiveUtm.utm_content,
+        referralCode,
         pageUrl: `/courses/${slug}`,
+        ipAddress:
+          headerList.get("x-forwarded-for")?.split(",")?.[0]?.trim() || null,
         userAgent: headerList.get("user-agent"),
+        referrer: headerList.get("referer"),
       });
 
       if (!trackResult?.success) {
@@ -121,6 +129,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
     utm_campaign: effectiveUtm.utm_campaign,
     utm_term: effectiveUtm.utm_term,
     utm_content: effectiveUtm.utm_content,
+    referralCode,
   };
 
   const heroData = {

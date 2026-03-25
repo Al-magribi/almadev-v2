@@ -12,9 +12,9 @@ import {
   Settings,
   CreditCard,
   X,
-  GraduationCap,
   LogOut,
-  LaptopMinimal, // Import icon LogOut
+  LaptopMinimal,
+  MessagesSquare, // Import icon LogOut
 } from "lucide-react";
 import Image from "next/image";
 
@@ -22,10 +22,10 @@ const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   { name: "Kursus", icon: BookOpen, href: "/admin/courses" },
   { name: "Produk Digital", icon: Package, href: "/admin/products" },
-  { name: "Peserta", icon: Users, href: "/admin/participants" },
   { name: "Bootcamp", icon: LaptopMinimal, href: "/admin/bootcamp" },
-  { name: "Pesan", icon: Users, href: "/admin/messages" },
+  { name: "Pesan", icon: MessagesSquare, href: "/admin/messages" },
   { name: "Transaksi", icon: CreditCard, href: "/admin/transactions" },
+  { name: "Pengguna", icon: Users, href: "/admin/participants" },
   { name: "Pengaturan", icon: Settings, href: "/admin/settings" },
   { name: "Akun", icon: UserCircle, href: "/admin/account" },
 ];

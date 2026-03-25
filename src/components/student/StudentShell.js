@@ -6,8 +6,12 @@ import StudentHeader from "@/components/student/StudentHeader";
 
 export default function StudentShell({ children, user }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  console.log(user);
+  const safeUser =
+    user?.role === "admin"
+      ? user
+      : user
+        ? { ...user, adminProfile: undefined }
+        : null;
 
   return (
     <div className='h-screen flex overflow-hidden bg-zinc-50 dark:bg-zinc-950 transition-colors duration-300'>
@@ -16,7 +20,7 @@ export default function StudentShell({ children, user }) {
       <div className='flex-1 flex flex-col min-w-0'>
         <StudentHeader
           toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          user={user}
+          user={safeUser}
         />
 
         <main className='flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth focus:outline-none'>

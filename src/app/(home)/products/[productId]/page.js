@@ -1,11 +1,13 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { BadgeCheck, CheckCircle2, ShieldCheck, Star } from "lucide-react";
 import { getProductDetail } from "@/actions/product-actions";
 import { getSettings } from "@/actions/setting-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import { formatRupiah } from "@/lib/client-utils";
 import ProductCheckoutButton from "@/components/marketing/checkout/ProductCheckoutButton";
+import { trackPageView } from "@/actions/dataview-actions";
 
 export async function generateMetadata({ params }) {
   const { productId } = await params;
@@ -25,6 +27,7 @@ export async function generateMetadata({ params }) {
 export default async function ProductDetailPage({ params, searchParams }) {
   const { productId } = await params;
   const sParams = await searchParams;
+  const referralCode = String(sParams?.ref || "").trim().toUpperCase() || null;
 
   const product = await getProductDetail(productId);
   if (!product) return notFound();
@@ -39,7 +42,34 @@ export default async function ProductDetailPage({ params, searchParams }) {
     utm_campaign: sParams?.utm_campaign || null,
     utm_term: sParams?.utm_term || null,
     utm_content: sParams?.utm_content || null,
+    referralCode,
   };
+
+  const headerList = await headers();
+  try {
+    const trackResult = await trackPageView({
+      landingId: product._id,
+      itemId: product._id,
+      itemType: "Product",
+      utmSource: utmData.utm_source || "website",
+      utmMedium: utmData.utm_medium || "landing",
+      utmCampaign: utmData.utm_campaign || "direct",
+      utmTerm: utmData.utm_term,
+      utmContent: utmData.utm_content,
+      referralCode,
+      pageUrl: `/products/${productId}`,
+      ipAddress:
+        headerList.get("x-forwarded-for")?.split(",")?.[0]?.trim() || null,
+      userAgent: headerList.get("user-agent"),
+      referrer: headerList.get("referer"),
+    });
+
+    if (!trackResult?.success) {
+      console.error("Track page view failed:", trackResult?.error);
+    }
+  } catch (error) {
+    console.error("Track page view failed:", error);
+  }
 
   return (
     <div className='bg-white text-slate-900'>

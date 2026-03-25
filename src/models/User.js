@@ -35,7 +35,22 @@ const UserSchema = new mongoose.Schema(
 
     isVerified: { type: Boolean, default: false },
     activationCode: { type: String },
-    referralCode: { type: String, default: null, sparse: true },
+    referralCode: {
+      type: String,
+      default: null,
+      unique: true,
+      sparse: true,
+      uppercase: true,
+      trim: true,
+      index: true,
+    },
+    affiliateStatus: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "inactive",
+      index: true,
+    },
+    affiliateJoinedAt: { type: Date, default: null },
 
     resetPasswordToken: { type: String, default: null },
     resetPasswordExpire: { type: Date, default: null },

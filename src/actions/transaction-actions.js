@@ -7,6 +7,7 @@ import User from "@/models/User";
 import Setting from "@/models/Setting";
 import BootcampParticipant from "@/models/BootcampParticipant";
 import Landing from "@/models/Landing";
+import AffiliateVisit from "@/models/AffiliateVisit";
 import dbConnect from "@/lib/db";
 import { customAlphabet } from "nanoid";
 import { sendPaymentEmail } from "@/lib/emailService";
@@ -19,6 +20,25 @@ const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 const serializeData = (data) => JSON.parse(JSON.stringify(data));
 
 const NON_DELETABLE_TRANSACTION_STATUSES = new Set(["failed", "expired"]);
+
+const normalizeReferralCode = (value = "") => {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized || null;
+};
+
+const resolveReferralCode = (payload = {}) => {
+  const directCode = normalizeReferralCode(payload?.referralCode);
+  if (directCode) {
+    return directCode;
+  }
+
+  const medium = String(payload?.utmMedium || "").trim().toLowerCase();
+  if (medium === "referral") {
+    return normalizeReferralCode(payload?.utmCampaign);
+  }
+
+  return null;
+};
 
 const normalizePhoneNumber = (value = "") => {
   const digits = String(value || "").replace(/\D/g, "");
@@ -50,6 +70,142 @@ const findUserByCheckoutIdentity = async ({ email, phone }) => {
 
   return { userByEmail, userByPhone };
 };
+
+const resolveAffiliateItem = async ({ itemType, itemId }) => {
+  if (itemType === "Course") {
+    return Course.findById(itemId)
+      .select("affiliateEnabled affiliateRewardAmount")
+      .lean();
+  }
+
+  if (itemType === "Product") {
+    return Product.findById(itemId)
+      .select("affiliateEnabled affiliateRewardAmount")
+      .lean();
+  }
+
+  return null;
+};
+
+const resolveAffiliateAttribution = async ({
+  itemType,
+  itemId,
+  referralCode,
+  buyerUserId,
+}) => {
+  const normalizedCode = normalizeReferralCode(referralCode);
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const [referrer, affiliateItem] = await Promise.all([
+    User.findOne({ referralCode: normalizedCode })
+      .select("_id referralCode")
+      .lean(),
+    resolveAffiliateItem({ itemType, itemId }),
+  ]);
+
+  if (!referrer?._id) {
+    return null;
+  }
+
+  if (buyerUserId && String(referrer._id) === String(buyerUserId)) {
+    return null;
+  }
+
+  if (!affiliateItem?.affiliateEnabled) {
+    return null;
+  }
+
+  const visit = await AffiliateVisit.findOne({
+    referrerId: referrer._id,
+    referralCode: normalizedCode,
+    itemId,
+    itemType,
+  })
+    .sort({ createdAt: -1 })
+    .select("_id")
+    .lean();
+
+  return {
+    referrerId: referrer._id,
+    referralCode: normalizedCode,
+    visitId: visit?._id || null,
+    rewardAmount: Math.max(0, Number(affiliateItem?.affiliateRewardAmount) || 0),
+    attributionModel: "last_click",
+  };
+};
+
+export async function applyAffiliateConversionForTransaction(transactionId) {
+  if (!transactionId) return;
+
+  await dbConnect();
+
+  const trx = await Transaction.findById(transactionId)
+    .select("itemId affiliate completedAt")
+    .lean();
+
+  if (!trx) return;
+
+  const completedAt = trx.completedAt ? new Date(trx.completedAt) : new Date();
+
+  if (!trx.completedAt) {
+    await Transaction.updateOne(
+      { _id: trx._id, completedAt: null },
+      { $set: { completedAt } },
+    );
+  }
+
+  if (!trx?.affiliate?.referrerId || !trx?.affiliate?.referralCode) {
+    return;
+  }
+
+  let visit = null;
+
+  if (trx?.affiliate?.visitId) {
+    visit = await AffiliateVisit.findById(trx.affiliate.visitId)
+      .select("_id")
+      .lean();
+  }
+
+  if (!visit) {
+    visit = await AffiliateVisit.findOne({
+      referrerId: trx.affiliate.referrerId,
+      referralCode: trx.affiliate.referralCode,
+      itemId: trx.itemId,
+    })
+      .sort({ createdAt: -1 })
+      .select("_id")
+      .lean();
+  }
+
+  if (!visit?._id) {
+    return;
+  }
+
+  await AffiliateVisit.updateOne(
+    {
+      _id: visit._id,
+      $or: [
+        { convertedTransactionId: null },
+        { convertedTransactionId: trx._id },
+      ],
+    },
+    {
+      $set: {
+        convertedTransactionId: trx._id,
+        convertedAt: completedAt,
+      },
+    },
+  );
+
+  if (!trx?.affiliate?.visitId) {
+    await Transaction.updateOne(
+      { _id: trx._id, "affiliate.visitId": null },
+      { $set: { "affiliate.visitId": visit._id } },
+    );
+  }
+}
 
 const getMidtransApiBaseUrl = (settings) => {
   const rawBase = (settings?.midtransBaseUrl || "").trim();
@@ -338,6 +494,8 @@ export async function syncTransactionStatus(orderId) {
     );
 
     if (normalizedStatus === "completed") {
+      await applyAffiliateConversionForTransaction(trx._id);
+
       const userUpdate = { isActive: true, isVerified: true };
       if (trx.itemType === "BootcampParticipant") {
         userUpdate.role = "bootcamp";
@@ -660,6 +818,13 @@ export async function createPayment(payload) {
     // ============ D) BUAT TRANSAKSI PENDING ============
     const orderId = `TRX-${nanoid()}`;
 
+    const affiliateAttribution = await resolveAffiliateAttribution({
+      itemType,
+      itemId,
+      referralCode: resolveReferralCode(payload),
+      buyerUserId: user._id,
+    });
+
     const trx = await Transaction.create({
       transactionCode: orderId,
       midtransOrderId: orderId,
@@ -681,7 +846,10 @@ export async function createPayment(payload) {
       utmTerm: payload.utmTerm || null,
       utmContent: payload.utmContent || null,
 
-      referralCode: payload.referralCode || null,
+      referralCode:
+        affiliateAttribution?.referralCode ||
+        resolveReferralCode(payload),
+      affiliate: affiliateAttribution || undefined,
 
       autoCreatedUser,
       midtransTransactionStatus: "pending",

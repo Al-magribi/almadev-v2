@@ -1,10 +1,13 @@
 // actions/dataview-actions.js
 "use server";
 
+import crypto from "crypto";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import ViewData from "@/models/ViewData";
 import Transaction from "@/models/Transaction";
+import User from "@/models/User";
+import AffiliateVisit from "@/models/AffiliateVisit";
 
 const ANALYTIC_TIMEZONE = "Asia/Jakarta";
 const ANALYTIC_UTC_OFFSET_HOURS = 7;
@@ -33,10 +36,106 @@ function getLastDaysRangeInOffset(days, offsetHours = ANALYTIC_UTC_OFFSET_HOURS)
   };
 }
 
+function normalizeReferralCode(value = "") {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized || null;
+}
+
+function resolveReferralCodeFromTracking(data = {}) {
+  const directCode = normalizeReferralCode(data?.referralCode);
+  if (directCode) {
+    return directCode;
+  }
+
+  const medium = String(data?.utmMedium || "").trim().toLowerCase();
+  if (medium === "referral") {
+    return normalizeReferralCode(data?.utmCampaign);
+  }
+
+  return null;
+}
+
+function normalizeItemType(value = "") {
+  return ["Course", "Product"].includes(value) ? value : null;
+}
+
+function buildVisitorKey({ ipAddress, userAgent, referralCode, pageUrl }) {
+  const fingerprintSource = [
+    String(ipAddress || "").trim().toLowerCase(),
+    String(userAgent || "").trim().toLowerCase(),
+    String(referralCode || "").trim().toUpperCase(),
+    String(pageUrl || "").trim().toLowerCase(),
+  ].join("|");
+
+  return crypto
+    .createHash("sha256")
+    .update(fingerprintSource || "anonymous")
+    .digest("hex");
+}
+
+async function createAffiliateVisit(data = {}) {
+  const referralCode = resolveReferralCodeFromTracking(data);
+  const itemType = normalizeItemType(data?.itemType);
+  if (!referralCode) {
+    return null;
+  }
+
+  if (!itemType) {
+    return null;
+  }
+
+  const referrer = await User.findOne({ referralCode })
+    .select("_id referralCode affiliateStatus")
+    .lean();
+
+  if (!referrer?._id) {
+    return null;
+  }
+
+  const visitorKey = buildVisitorKey({
+    ipAddress: data?.ipAddress,
+    userAgent: data?.userAgent,
+    referralCode,
+    pageUrl: data?.pageUrl,
+  });
+
+  const affiliateVisit = await AffiliateVisit.create({
+    referrerId: referrer._id,
+    referralCode,
+    itemId: mongoose.Types.ObjectId.isValid(data?.itemId)
+      ? new mongoose.Types.ObjectId(data.itemId)
+      : null,
+    itemType,
+    landingPath: data?.pageUrl || null,
+    visitorKey,
+    ipAddressHash: data?.ipAddress
+      ? crypto.createHash("sha256").update(String(data.ipAddress)).digest("hex")
+      : null,
+    userAgent: data?.userAgent || null,
+    utmSource: data?.utmSource || null,
+    utmMedium: data?.utmMedium || null,
+    utmCampaign: data?.utmCampaign || null,
+    utmTerm: data?.utmTerm || null,
+    utmContent: data?.utmContent || null,
+  });
+
+  return {
+    affiliateVisitId: affiliateVisit._id,
+    referrerId: referrer._id,
+    referralCode,
+  };
+}
+
 export async function trackPageView(data) {
   try {
+    const itemType = normalizeItemType(data?.itemType);
+
     if (!data?.pageUrl) {
       return { success: false, error: "pageUrl wajib diisi" };
+    }
+
+    if (!itemType) {
+      return { success: false, error: "itemType tidak valid" };
     }
 
     if (!mongoose.Types.ObjectId.isValid(data?.landingId)) {
@@ -48,15 +147,25 @@ export async function trackPageView(data) {
     }
 
     await dbConnect();
+    const affiliateAttribution = await createAffiliateVisit(data);
+
     await ViewData.create({
       landingId: new mongoose.Types.ObjectId(data.landingId),
       itemId: new mongoose.Types.ObjectId(data.itemId),
+      itemType,
       utmSource: data.utmSource || "direct",
       utmMedium: data.utmMedium,
       utmCampaign: data.utmCampaign,
+      utmTerm: data.utmTerm,
+      utmContent: data.utmContent,
+      referralCode:
+        affiliateAttribution?.referralCode || resolveReferralCodeFromTracking(data),
+      referrerId: affiliateAttribution?.referrerId || null,
+      affiliateVisitId: affiliateAttribution?.affiliateVisitId || null,
       pageUrl: data.pageUrl,
       ipAddress: data.ipAddress,
       userAgent: data.userAgent,
+      referrer: data.referrer,
     });
     return { success: true };
   } catch (error) {
