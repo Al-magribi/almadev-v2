@@ -6,22 +6,12 @@ export default async function robots() {
   const baseUrl = normalizeBaseUrl(settings?.data?.domain);
 
   return {
-    rules: [
-      {
-        userAgent: "*",
-        allow: "/",
-        disallow: [
-          "/admin",
-          "/student",
-          "/online-bootcamp",
-          "/signin",
-          "/signup",
-          "/activate",
-          "/checkout",
-          "/status",
-        ],
-      },
-    ],
+    // Keep robots.txt crawl-friendly. Private/auth pages are excluded with
+    // route-level metadata (`robots: { index: false, follow: false }`) instead.
+    rules: {
+      userAgent: "*",
+      allow: "/",
+    },
     sitemap: `${baseUrl}/sitemap.xml`,
     host: baseUrl,
   };
