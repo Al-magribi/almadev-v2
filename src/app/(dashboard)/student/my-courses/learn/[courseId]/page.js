@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth-service";
 import dbConnect from "@/lib/db";
 import Progress from "@/models/Progress";
 import Qna from "@/models/Qna";
+import Transaction from "@/models/Transaction";
 
 export default async function LearnCourse({ params }) {
   const { courseId } = (await params) || {};
@@ -26,6 +27,24 @@ export default async function LearnCourse({ params }) {
   }
 
   await dbConnect();
+
+  const activePurchase = await Transaction.exists({
+    userId: user.userId,
+    itemId: courseId,
+    itemType: "Course",
+    status: "completed",
+    "refundRequest.status": { $nin: ["diajukan", "diproses"] },
+  });
+
+  if (!activePurchase) {
+    return (
+      <div className='bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6'>
+        <p className='text-gray-500 dark:text-gray-400 text-sm'>
+          Akses kursus ditangguhkan karena transaksi ini sedang dalam proses refund atau sudah tidak aktif.
+        </p>
+      </div>
+    );
+  }
 
   const curriculum = data.course.curriculum || [];
   const totalLessons = curriculum.reduce(

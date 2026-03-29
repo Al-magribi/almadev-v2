@@ -33,9 +33,7 @@ export default function AffiliateTransactionsTab({ transactions, metrics }) {
               <th className='px-4 py-3 font-medium'>Transaksi</th>
               <th className='px-4 py-3 font-medium'>Pembeli</th>
               <th className='px-4 py-3 font-medium'>Item</th>
-              <th className='px-4 py-3 font-medium'>Harga</th>
-              <th className='px-4 py-3 font-medium'>Reward</th>
-              <th className='px-4 py-3 font-medium'>Payout</th>
+              <th className='px-4 py-3 font-medium'>Nominal</th>
               <th className='px-4 py-3 font-medium'>Status</th>
             </tr>
           </thead>
@@ -68,13 +66,30 @@ export default function AffiliateTransactionsTab({ transactions, metrics }) {
                   <div className='text-xs text-gray-400'>{item.itemType}</div>
                 </td>
                 <td className='px-4 py-3 text-gray-600 dark:text-gray-300'>
-                  {formatRupiah(item.price)}
-                </td>
-                <td className='px-4 py-3 font-semibold text-emerald-600 dark:text-emerald-400'>
-                  {formatRupiah(item.rewardAmount)}
-                </td>
-                <td className='px-4 py-3 font-semibold text-amber-600 dark:text-amber-400'>
-                  {formatRupiah(item.payoutAmount)}
+                  <div className='space-y-1'>
+                    <div className='flex items-center gap-2'>
+                      <span className='text-xs font-medium text-gray-400 dark:text-gray-500'>
+                        Harga
+                      </span>
+                      <span>{formatRupiah(item.price)}</span>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <span className='text-xs font-medium text-gray-400 dark:text-gray-500'>
+                        Reward
+                      </span>
+                      <span className='font-semibold text-emerald-600 dark:text-emerald-400'>
+                        {formatRupiah(item.rewardAmount)}
+                      </span>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <span className='text-xs font-medium text-gray-400 dark:text-gray-500'>
+                        Payout
+                      </span>
+                      <span className='font-semibold text-amber-600 dark:text-amber-400'>
+                        {formatRupiah(item.payoutAmount)}
+                      </span>
+                    </div>
+                  </div>
                 </td>
                 <td className='px-4 py-3'>
                   <div className='flex flex-col gap-2'>

@@ -15,6 +15,15 @@ import {
   BarChart3,
 } from "lucide-react";
 
+const netRevenueExpression = {
+  $max: [
+    0,
+    {
+      $subtract: ["$price", { $ifNull: ["$refundAmount", 0] }],
+    },
+  ],
+};
+
 function StatCard({
   title,
   value,
@@ -114,26 +123,26 @@ export default async function AdminDashboard() {
       createdAt: { $gte: start30, $lte: endDate },
     }),
     Transaction.aggregate([
-      { $match: { status: "completed" } },
-      { $group: { _id: null, revenue: { $sum: "$price" } } },
+      { $match: { status: { $in: ["completed", "refunded"] } } },
+      { $group: { _id: null, revenue: { $sum: netRevenueExpression } } },
     ]),
     Transaction.aggregate([
       {
         $match: {
-          status: "completed",
+          status: { $in: ["completed", "refunded"] },
           createdAt: { $gte: start30, $lte: endDate },
         },
       },
-      { $group: { _id: null, revenue: { $sum: "$price" } } },
+      { $group: { _id: null, revenue: { $sum: netRevenueExpression } } },
     ]),
     Transaction.aggregate([
       {
         $match: {
-          status: "completed",
+          status: { $in: ["completed", "refunded"] },
           createdAt: { $gte: prev30, $lt: start30 },
         },
       },
-      { $group: { _id: null, revenue: { $sum: "$price" } } },
+      { $group: { _id: null, revenue: { $sum: netRevenueExpression } } },
     ]),
     Progress.distinct("userId", { lastWatchedAt: { $gte: start7 } }),
   ]);
@@ -149,7 +158,7 @@ export default async function AdminDashboard() {
     Transaction.aggregate([
       {
         $match: {
-          status: "completed",
+          status: { $in: ["completed", "refunded"] },
           createdAt: { $gte: start14, $lte: endDate },
         },
       },
@@ -158,7 +167,7 @@ export default async function AdminDashboard() {
           _id: {
             $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
           },
-          revenue: { $sum: "$price" },
+          revenue: { $sum: netRevenueExpression },
           count: { $sum: 1 },
         },
       },
@@ -202,20 +211,22 @@ export default async function AdminDashboard() {
 
   const [topCourses, recentTransactions] = await Promise.all([
     Transaction.aggregate([
-      { $match: { status: "completed", itemType: "Course" } },
+      { $match: { status: { $in: ["completed", "refunded"] }, itemType: "Course" } },
       {
         $group: {
           _id: "$itemId",
           courseName: { $first: "$itemName" },
-          revenue: { $sum: "$price" },
+          revenue: { $sum: netRevenueExpression },
           sales: { $sum: 1 },
         },
       },
       { $sort: { revenue: -1 } },
       { $limit: 5 },
     ]),
-    Transaction.find({ status: "completed" })
-      .select("itemName price paymentMethod status createdAt transactionCode")
+    Transaction.find({ status: { $in: ["completed", "refunded"] } })
+      .select(
+        "itemName price refundAmount refundRequest paymentMethod status createdAt transactionCode",
+      )
       .sort({ createdAt: -1 })
       .limit(6)
       .lean(),
@@ -408,11 +419,22 @@ export default async function AdminDashboard() {
                   </div>
                   <div className='text-right'>
                     <p className='text-sm font-semibold text-zinc-900 dark:text-zinc-100'>
-                      {formatRupiah(trx.price)}
+                      {formatRupiah(
+                        Math.max(
+                          0,
+                          Number(trx.price || 0) - Number(trx.refundAmount || 0),
+                        ),
+                      )}
                     </p>
                     <p className='text-xs text-zinc-500'>
                       {trx.paymentMethod || "unknown"}
                     </p>
+                    {trx.refundRequest?.status ? (
+                      <p className='text-xs text-rose-500 dark:text-rose-300'>
+                        Refund {formatRupiah(trx.refundAmount || trx.price || 0)} -{" "}
+                        {trx.refundRequest.status}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               ))

@@ -60,7 +60,6 @@ export default function AffiliateDashboardSection({
   const [activeTab, setActiveTab] = useState("dashboard");
   const [visitorQuery, setVisitorQuery] = useState("");
   const [visitorType, setVisitorType] = useState("all");
-  const [visitorStatus, setVisitorStatus] = useState("all");
   const [isPending, startTransition] = useTransition();
   const [formState, formAction] = useActionState(
     registerAffiliateProgram,
@@ -92,13 +91,9 @@ export default function AffiliateDashboardSection({
           .includes(query);
       const matchesType =
         visitorType === "all" || visitor.itemType === visitorType;
-      const matchesStatus =
-        visitorStatus === "all" ||
-        (visitorStatus === "converted" && visitor.converted) ||
-        (visitorStatus === "pending" && !visitor.converted);
-      return matchesQuery && matchesType && matchesStatus;
+      return matchesQuery && matchesType;
     });
-  }, [visitorQuery, visitorType, visitorStatus, visitors]);
+  }, [visitorQuery, visitorType, visitors]);
 
   const topRewards = [...(catalog || [])]
     .sort((a, b) => b.rewardAmount - a.rewardAmount)
@@ -317,8 +312,6 @@ export default function AffiliateDashboardSection({
             setVisitorQuery={setVisitorQuery}
             visitorType={visitorType}
             setVisitorType={setVisitorType}
-            visitorStatus={visitorStatus}
-            setVisitorStatus={setVisitorStatus}
           />
         ) : null}
 

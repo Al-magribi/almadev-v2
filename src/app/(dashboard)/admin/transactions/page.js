@@ -1,22 +1,43 @@
 import {
   getAllTransactions,
+  getRefundRequestsAdmin,
   getTransactionAnalytics,
 } from "@/actions/transaction-actions";
-import TransactionAnalysis from "@/components/admin/transaction/TransactionAnalysis";
-import TransactionList from "@/components/admin/transaction/TransactionList";
+import {
+  getAffiliateMembersAdmin,
+  getAffiliatePayoutsAdmin,
+} from "@/actions/affiliate-actions";
+import AdminTransactionsTabs from "@/components/admin/transaction/AdminTransactionsTabs";
 import { Landmark, RefreshCcw } from "lucide-react";
 
 export const dynamic = "force-dynamic"; // Pastikan data selalu fresh
 
 export default async function AdminTransactions() {
   // Fetch data secara parallel untuk performa
-  const [listData, analyticsData] = await Promise.all([
-    getAllTransactions(),
-    getTransactionAnalytics(),
-  ]);
+  const [
+    listData,
+    analyticsData,
+    affiliateMembersData,
+    payoutData,
+    refundRequestsData,
+  ] =
+    await Promise.all([
+      getAllTransactions(),
+      getTransactionAnalytics(),
+      getAffiliateMembersAdmin(),
+      getAffiliatePayoutsAdmin(),
+      getRefundRequestsAdmin(),
+    ]);
 
   const transactions = listData.success ? listData.data : [];
   const analytics = analyticsData.success ? analyticsData.data : null;
+  const affiliateMembers = affiliateMembersData.success
+    ? affiliateMembersData.data
+    : [];
+  const payoutRows = payoutData.success ? payoutData.data : [];
+  const refundRequests = refundRequestsData.success
+    ? refundRequestsData.data
+    : [];
 
   return (
     <div className='max-w-7xl mx-auto space-y-8 pb-10'>
@@ -45,14 +66,14 @@ export default async function AdminTransactions() {
         </button>
       </div>
 
-      {/* Analytics Section */}
       <section>
-        <TransactionAnalysis analytics={analytics} />
-      </section>
-
-      {/* List Section */}
-      <section>
-        <TransactionList transactions={transactions} />
+        <AdminTransactionsTabs
+          transactions={transactions}
+          analytics={analytics}
+          affiliateMembers={affiliateMembers}
+          payoutRows={payoutRows}
+          refundRequests={refundRequests}
+        />
       </section>
     </div>
   );

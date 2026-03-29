@@ -7,8 +7,6 @@ export default function AffiliateVisitorsTab({
   setVisitorQuery,
   visitorType,
   setVisitorType,
-  visitorStatus,
-  setVisitorStatus,
 }) {
   return (
     <div className='space-y-6'>
@@ -19,10 +17,10 @@ export default function AffiliateVisitorsTab({
               Data Pengunjung Referral
             </h2>
             <p className='mt-1 text-sm text-gray-500 dark:text-gray-400'>
-              Filter visitor berdasarkan path, campaign, tipe item, dan status konversi.
+              Tabel ini merangkum jumlah visit per link referral berdasarkan path, campaign, dan tipe item.
             </p>
           </div>
-          <div className='grid gap-3 md:grid-cols-3'>
+          <div className='grid gap-3 md:grid-cols-2'>
             <input
               value={visitorQuery}
               onChange={(event) => setVisitorQuery(event.target.value)}
@@ -37,15 +35,6 @@ export default function AffiliateVisitorsTab({
               <option value='all'>Semua Tipe</option>
               <option value='Course'>Course</option>
               <option value='Product'>Product</option>
-            </select>
-            <select
-              value={visitorStatus}
-              onChange={(event) => setVisitorStatus(event.target.value)}
-              className='rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 dark:border-gray-700 dark:bg-gray-950 dark:text-white'
-            >
-              <option value='all'>Semua Status</option>
-              <option value='converted'>Sudah Convert</option>
-              <option value='pending'>Belum Convert</option>
             </select>
           </div>
         </div>
@@ -62,7 +51,7 @@ export default function AffiliateVisitorsTab({
               <th className='px-4 py-3 font-medium'>Tipe</th>
               <th className='px-4 py-3 font-medium'>Landing</th>
               <th className='px-4 py-3 font-medium'>Campaign</th>
-              <th className='px-4 py-3 font-medium'>Status</th>
+              <th className='px-4 py-3 font-medium'>Visit</th>
             </tr>
           </thead>
           <tbody>
@@ -86,14 +75,8 @@ export default function AffiliateVisitorsTab({
                   {visitor.utmCampaign || "-"}
                 </td>
                 <td className='px-4 py-3'>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      visitor.converted
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                    }`}
-                  >
-                    {visitor.converted ? "Converted" : "Belum Convert"}
+                  <span className='inline-flex min-w-12 items-center justify-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'>
+                    {Number(visitor.visitCount || 0)}
                   </span>
                 </td>
               </tr>

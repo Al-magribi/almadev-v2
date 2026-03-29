@@ -47,11 +47,16 @@ export default function Checkout({ item, user, utm, metaPixelId }) {
   // Mengambil data dari item.planName yang dikirim dari server
   const getPlanFeatures = (planName) => {
     if (itemType === "Product") {
-      return [
-        "Akses instan setelah pembayaran terverifikasi",
-        "File/asset siap pakai untuk proyek Anda",
-        "Dukungan teknis dasar via komunitas",
-      ];
+      const productBenefits = Array.isArray(item?.benefits)
+        ? item.benefits.map((feature) => String(feature || "").trim()).filter(Boolean)
+        : [];
+      return productBenefits.length > 0
+        ? productBenefits
+        : [
+            "Akses instan setelah pembayaran terverifikasi",
+            "File/asset siap pakai untuk proyek Anda",
+            "Dukungan teknis dasar via komunitas",
+          ];
     }
 
     const name = planName?.toLowerCase() || "";

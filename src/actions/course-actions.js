@@ -242,6 +242,7 @@ export async function updateCourse(courseId, formData) {
     // 1. Extract Data Dasar Course
     const name = formData.get("name");
     const price = formData.get("price");
+    const affiliateRewardAmount = formData.get("affiliateRewardAmount");
     const description = formData.get("description");
     const video = formData.get("video"); // YouTube Link
     const imageFile = formData.get("image"); // File Gambar Thumbnail Utama
@@ -343,6 +344,10 @@ export async function updateCourse(courseId, formData) {
       name,
       slug,
       price: Number(price),
+      affiliateRewardAmount: Math.max(
+        0,
+        Number(affiliateRewardAmount) || 0,
+      ),
       description,
       video,
       isActive,
@@ -562,6 +567,7 @@ export async function getPurchasedCoursesByUser(userId) {
       userId, // boleh string atau ObjectId, mongoose akan cast
       status: "completed",
       itemType: "Course",
+      "refundRequest.status": { $nin: ["diajukan", "diproses"] },
     })
       .sort({ createdAt: -1 })
       .populate({

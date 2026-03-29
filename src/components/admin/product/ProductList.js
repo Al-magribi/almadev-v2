@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Edit, Trash2, Tag, FileImage } from "lucide-react";
+import Link from "next/link";
+import { Settings2, Trash2, Tag, FileImage } from "lucide-react";
 import Image from "next/image";
-import ProductForm from "./ProductForm";
 import { deleteProduct } from "@/actions/product-actions";
 
 export default function ProductList({ products }) {
-  const [editingProduct, setEditingProduct] = useState(null);
   const [isDeleting, setIsDeleting] = useState(null);
 
   const handleDelete = async (id) => {
@@ -18,14 +17,13 @@ export default function ProductList({ products }) {
     }
   };
 
-  // Helper untuk warna status (Updated for Dark Mode)
   const getStatusColor = (status) => {
     switch (status) {
       case "published":
         return "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800";
       case "archived":
         return "bg-gray-100 text-gray-600 border-gray-200 dark:bg-zinc-800 dark:text-zinc-400 dark:border-zinc-700";
-      default: // draft
+      default:
         return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800";
     }
   };
@@ -52,7 +50,6 @@ export default function ProductList({ products }) {
               key={product._id}
               className='group bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-xl overflow-hidden hover:shadow-md transition-all duration-300 flex flex-col'
             >
-              {/* Bagian Gambar */}
               <div className='relative h-48 w-full bg-gray-100 dark:bg-zinc-950 border-b border-gray-100 dark:border-zinc-800'>
                 {product.image ? (
                   <Image
@@ -68,7 +65,6 @@ export default function ProductList({ products }) {
                   </div>
                 )}
 
-                {/* Badge Status (Overlay di gambar) */}
                 <div className='absolute top-3 right-3'>
                   <span
                     className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold capitalize border shadow-sm backdrop-blur-sm ${getStatusColor(
@@ -80,9 +76,7 @@ export default function ProductList({ products }) {
                 </div>
               </div>
 
-              {/* Bagian Konten */}
               <div className='p-4 flex flex-col flex-1'>
-                {/* Kategori */}
                 <div className='flex items-center gap-2 mb-2'>
                   <span className='inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30 uppercase tracking-wider'>
                     <Tag className='w-3 h-3' />
@@ -90,7 +84,6 @@ export default function ProductList({ products }) {
                   </span>
                 </div>
 
-                {/* Judul & Harga */}
                 <div className='mb-3'>
                   <h3 className='font-bold text-gray-900 dark:text-zinc-100 line-clamp-1 text-lg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors'>
                     {product.name}
@@ -105,15 +98,14 @@ export default function ProductList({ products }) {
                     Rp {product.price.toLocaleString("id-ID")}
                   </span>
 
-                  {/* Action Buttons */}
                   <div className='flex items-center gap-2'>
-                    <button
-                      onClick={() => setEditingProduct(product)}
+                    <Link
+                      href={`/admin/products/${product._id}`}
                       className='p-2 text-gray-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition border border-transparent hover:border-blue-100 dark:hover:border-blue-900/30'
-                      title='Edit Produk'
+                      title='Kelola Produk'
                     >
-                      <Edit className='w-4 h-4' />
-                    </button>
+                      <Settings2 className='w-4 h-4' />
+                    </Link>
                     <button
                       onClick={() => handleDelete(product._id)}
                       disabled={isDeleting === product._id}
@@ -132,15 +124,6 @@ export default function ProductList({ products }) {
             </div>
           ))}
         </div>
-      )}
-
-      {/* Modal Edit tetap sama */}
-      {editingProduct && (
-        <ProductForm
-          isOpen={true}
-          onClose={() => setEditingProduct(null)}
-          initialData={editingProduct}
-        />
       )}
     </>
   );

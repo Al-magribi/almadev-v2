@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import Transaction from "@/models/Transaction";
 import Course from "@/models/Course";
 import Product from "@/models/Product";
@@ -8,18 +9,32 @@ import Setting from "@/models/Setting";
 import BootcampParticipant from "@/models/BootcampParticipant";
 import Landing from "@/models/Landing";
 import AffiliateVisit from "@/models/AffiliateVisit";
+import Progress from "@/models/Progress";
 import dbConnect from "@/lib/db";
 import { customAlphabet } from "nanoid";
 import { sendPaymentEmail } from "@/lib/emailService";
 import { getCurrentUser } from "@/lib/auth-service";
 import { cookies } from "next/headers";
 import { getOfferSessionKey, resolveCourseOfferStates } from "@/lib/course-offer";
+import { uploadImage } from "@/lib/server-utils";
 
 const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
 const serializeData = (data) => JSON.parse(JSON.stringify(data));
 
 const NON_DELETABLE_TRANSACTION_STATUSES = new Set(["failed", "expired"]);
+const REFUND_WINDOW_DAYS = 7;
+const MAX_REFUND_PROGRESS_PERCENT = 5;
+const REVENUE_RELEVANT_STATUSES = ["completed", "refunded"];
+
+const netRevenueExpression = {
+  $max: [
+    0,
+    {
+      $subtract: ["$price", { $ifNull: ["$refundAmount", 0] }],
+    },
+  ],
+};
 
 const normalizeReferralCode = (value = "") => {
   const normalized = String(value || "").trim().toUpperCase();
@@ -73,15 +88,33 @@ const findUserByCheckoutIdentity = async ({ email, phone }) => {
 
 const resolveAffiliateItem = async ({ itemType, itemId }) => {
   if (itemType === "Course") {
-    return Course.findById(itemId)
+    const course = await Course.findById(itemId)
       .select("affiliateEnabled affiliateRewardAmount")
       .lean();
+    if (!course) return null;
+    return {
+      ...course,
+      affiliateEnabled:
+        typeof course.affiliateEnabled === "boolean"
+          ? course.affiliateEnabled
+          : true,
+      affiliateRewardAmount: Number(course.affiliateRewardAmount || 0),
+    };
   }
 
   if (itemType === "Product") {
-    return Product.findById(itemId)
+    const product = await Product.findById(itemId)
       .select("affiliateEnabled affiliateRewardAmount")
       .lean();
+    if (!product) return null;
+    return {
+      ...product,
+      affiliateEnabled:
+        typeof product.affiliateEnabled === "boolean"
+          ? product.affiliateEnabled
+          : true,
+      affiliateRewardAmount: Number(product.affiliateRewardAmount || 0),
+    };
   }
 
   return null;
@@ -227,6 +260,120 @@ const getMidtransApiBaseUrl = (settings) => {
     : "https://api.sandbox.midtrans.com";
 };
 
+const getRefundWindowDeadline = (createdAt) => {
+  if (!createdAt) return null;
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) return null;
+
+  return new Date(
+    created.getTime() + REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  );
+};
+
+const getCourseLearningProgressPercent = async ({ userId, courseId }) => {
+  if (!userId || !courseId) return 0;
+
+  const course = await Course.findById(courseId).select("curriculum").lean();
+  if (!course) return 0;
+
+  const totalLessons = (course.curriculum || []).reduce(
+    (acc, section) => acc + (section.lessons?.length || 0),
+    0,
+  );
+
+  if (totalLessons <= 0) return 0;
+
+  const completedLessons = await Progress.countDocuments({
+    userId,
+    courseId,
+    isCompleted: true,
+  });
+
+  return Math.min(100, Math.round((completedLessons / totalLessons) * 100));
+};
+
+const getRefundEligibilityForTransaction = async ({
+  transaction,
+  userId,
+  progressPercent: providedProgressPercent,
+}) => {
+  const deadlineAt = getRefundWindowDeadline(transaction?.createdAt);
+  const now = new Date();
+  const progressPercent =
+    typeof providedProgressPercent === "number"
+      ? providedProgressPercent
+      : transaction?.itemType === "Course"
+        ? await getCourseLearningProgressPercent({
+            userId,
+            courseId: transaction?.itemId,
+          })
+        : 0;
+
+  if (!transaction) {
+    return {
+      eligible: false,
+      progressPercent,
+      reason: "Transaksi tidak ditemukan.",
+      deadlineAt: null,
+    };
+  }
+
+  if (String(transaction.userId) !== String(userId)) {
+    return {
+      eligible: false,
+      progressPercent,
+      reason: "Transaksi ini bukan milik Anda.",
+      deadlineAt,
+    };
+  }
+
+  if (transaction.status !== "completed") {
+    return {
+      eligible: false,
+      progressPercent,
+      reason: "Refund hanya tersedia untuk transaksi yang sudah selesai.",
+      deadlineAt,
+    };
+  }
+
+  if (transaction.refundRequest?.status) {
+    return {
+      eligible: false,
+      progressPercent,
+      reason: `Refund sudah ${transaction.refundRequest.status}.`,
+      deadlineAt,
+    };
+  }
+
+  if (!deadlineAt || now > deadlineAt) {
+    return {
+      eligible: false,
+      progressPercent,
+      reason: "Batas pengajuan refund adalah 7 hari sejak transaksi dibuat.",
+      deadlineAt,
+    };
+  }
+
+  if (
+    transaction.itemType === "Course" &&
+    progressPercent >= MAX_REFUND_PROGRESS_PERCENT
+  ) {
+    return {
+      eligible: false,
+      progressPercent,
+      reason: "Progress belajar harus di bawah 5% untuk mengajukan refund.",
+      deadlineAt,
+    };
+  }
+
+  return {
+    eligible: true,
+    progressPercent,
+    reason: null,
+    deadlineAt,
+  };
+};
+
 export async function getAllTransactions() {
   await dbConnect();
 
@@ -367,8 +514,8 @@ export async function getTransactionAnalytics() {
 
   try {
     const revenueStats = await Transaction.aggregate([
-      { $match: { status: "completed" } },
-      { $group: { _id: null, totalRevenue: { $sum: "$price" } } },
+      { $match: { status: { $in: REVENUE_RELEVANT_STATUSES } } },
+      { $group: { _id: null, totalRevenue: { $sum: netRevenueExpression } } },
     ]);
 
     const statusStats = await Transaction.aggregate([
@@ -376,12 +523,12 @@ export async function getTransactionAnalytics() {
     ]);
 
     const utmStats = await Transaction.aggregate([
-      { $match: { status: "completed" } },
+      { $match: { status: { $in: REVENUE_RELEVANT_STATUSES } } },
       {
         $group: {
           _id: "$utmSource",
           count: { $sum: 1 },
-          revenue: { $sum: "$price" },
+          revenue: { $sum: netRevenueExpression },
         },
       },
       { $sort: { count: -1 } },
@@ -389,12 +536,12 @@ export async function getTransactionAnalytics() {
     ]);
 
     const typeStats = await Transaction.aggregate([
-      { $match: { status: "completed" } },
+      { $match: { status: { $in: REVENUE_RELEVANT_STATUSES } } },
       {
         $group: {
           _id: "$itemType",
           count: { $sum: 1 },
-          revenue: { $sum: "$price" },
+          revenue: { $sum: netRevenueExpression },
         },
       },
     ]);
@@ -599,46 +746,330 @@ export async function syncTransactionStatus(orderId) {
 export async function getTransactionsByUser(userId) {
   await dbConnect();
 
-  if (!userId) return [];
+  if (!userId) return { items: [], bankInfo: null };
 
   try {
-    const transactions = await Transaction.find({ userId })
-      .populate({
-        path: "item",
-        select: "name title image price category type",
-      })
-      .sort({ createdAt: -1 })
-      .lean({ virtuals: true });
+    const [transactions, user] = await Promise.all([
+      Transaction.find({ userId })
+        .populate({
+          path: "item",
+          select: "name title image price category type",
+        })
+        .sort({ createdAt: -1 })
+        .lean({ virtuals: true }),
+      User.findById(userId).select("bankInfo").lean(),
+    ]);
 
     const plain = serializeData(transactions);
+    const enriched = await Promise.all(
+      plain.map(async (t) => {
+        const progressPercent =
+          t.itemType === "Course"
+            ? await getCourseLearningProgressPercent({
+                userId,
+                courseId: t.itemId,
+              })
+            : 0;
 
-    return plain.map((t) => ({
-      id: t._id,
-      transactionCode: t.transactionCode,
-      price: t.price,
-      status: t.status,
-      paymentMethod: t.paymentMethod,
-      createdAt: t.createdAt,
-      itemType: t.itemType,
-      itemName: t.itemName,
-      utmSource: t.utmSource,
-      refundAmount: t.refundAmount || 0,
-      refundRequest: t.refundRequest || null,
-      midtransStatus: t.midtransTransactionStatus || null,
-      item: t.item
-        ? {
-            _id: t.item._id,
-            name: t.item.name || t.item.title,
-            image: t.item.image,
-            price: t.item.price,
-            category: t.item.category,
-            type: t.item.type,
-          }
-        : null,
-    }));
+        const refundEligibility = await getRefundEligibilityForTransaction({
+          transaction: t,
+          userId,
+          progressPercent,
+        });
+
+        return {
+          id: t._id,
+          transactionCode: t.transactionCode,
+          price: t.price,
+          status: t.status,
+          paymentMethod: t.paymentMethod,
+          createdAt: t.createdAt,
+          itemType: t.itemType,
+          itemName: t.itemName,
+          utmSource: t.utmSource,
+          refundAmount: t.refundAmount || 0,
+          refundRequest: t.refundRequest || null,
+          refundEligibility: {
+            ...refundEligibility,
+            deadlineAt: refundEligibility.deadlineAt
+              ? refundEligibility.deadlineAt.toISOString()
+              : null,
+          },
+          midtransStatus: t.midtransTransactionStatus || null,
+          item: t.item
+            ? {
+                _id: t.item._id,
+                name: t.item.name || t.item.title,
+                image: t.item.image,
+                price: t.item.price,
+                category: t.item.category,
+                type: t.item.type,
+              }
+            : null,
+        };
+      }),
+    );
+
+    return {
+      items: enriched,
+      bankInfo: {
+        bankName: user?.bankInfo?.bankName || "",
+        accountNumber: user?.bankInfo?.accountNumber || "",
+        accountName: user?.bankInfo?.accountName || "",
+      },
+    };
   } catch (error) {
     console.error("Error fetching user transactions:", error);
-    return [];
+    return { items: [], bankInfo: null };
+  }
+}
+
+export async function submitRefundRequest(payload = {}) {
+  await dbConnect();
+
+  try {
+    const session = await getCurrentUser();
+    if (!session?.userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const transactionId = String(payload.transactionId || "").trim();
+    const bankName = String(payload.bankName || "").trim();
+    const accountNumber = String(payload.accountNumber || "").trim();
+    const accountName = String(payload.accountName || "").trim();
+    const reason = String(payload.reason || "").trim();
+
+    if (!transactionId) {
+      return { success: false, error: "Transaksi tidak valid." };
+    }
+
+    if (!bankName || !accountNumber || !accountName) {
+      return {
+        success: false,
+        error:
+          "Nama bank, nomor rekening, dan nama pemilik rekening wajib diisi.",
+      };
+    }
+
+    const transaction = await Transaction.findById(transactionId).select(
+      "_id userId itemId itemType status createdAt refundRequest price",
+    );
+
+    if (!transaction) {
+      return { success: false, error: "Transaksi tidak ditemukan." };
+    }
+
+    const eligibility = await getRefundEligibilityForTransaction({
+      transaction,
+      userId: session.userId,
+    });
+
+    if (!eligibility.eligible) {
+      return { success: false, error: eligibility.reason };
+    }
+
+    transaction.refundRequest = {
+      ...transaction.refundRequest,
+      requestedAt: new Date(),
+      reason: reason || null,
+      bankName,
+      accountNumber,
+      accountName,
+      status: "diajukan",
+      approvedBy: null,
+      approvedAt: null,
+      processedBy: null,
+      processedAt: null,
+      completedBy: null,
+      completedAt: null,
+      refundProof: null,
+      adminNotes: null,
+    };
+    await transaction.save();
+
+    await User.updateOne(
+      { _id: session.userId },
+      {
+        $set: {
+          "bankInfo.bankName": bankName,
+          "bankInfo.accountNumber": accountNumber,
+          "bankInfo.accountName": accountName,
+        },
+      },
+    );
+
+    revalidatePath("/student/transactions");
+    revalidatePath("/admin/transactions");
+
+    return {
+      success: true,
+      message: "Pengajuan refund berhasil dikirim dan menunggu review admin.",
+    };
+  } catch (error) {
+    console.error("submitRefundRequest error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateRefundRequestByAdmin(formData) {
+  await dbConnect();
+
+  try {
+    const session = await getCurrentUser();
+    if (!session?.userId || session.role !== "admin") {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const transactionId = String(formData.get("transactionId") || "").trim();
+    const nextStatus = String(formData.get("status") || "").trim();
+    const adminNotes = String(formData.get("adminNotes") || "").trim();
+    const refundProof = formData.get("refundProof");
+
+    if (!transactionId || !nextStatus) {
+      return { success: false, error: "Data refund tidak lengkap." };
+    }
+
+    if (!["diproses", "selesai", "ditolak"].includes(nextStatus)) {
+      return { success: false, error: "Status refund tidak valid." };
+    }
+
+    const trx = await Transaction.findById(transactionId);
+    if (!trx) {
+      return { success: false, error: "Transaksi tidak ditemukan." };
+    }
+
+    if (!trx.refundRequest?.requestedAt) {
+      return { success: false, error: "Transaksi ini belum mengajukan refund." };
+    }
+
+    let uploadedProof = trx.refundRequest?.refundProof || null;
+    if (refundProof && typeof refundProof !== "string" && refundProof.size > 0) {
+      uploadedProof = await uploadImage(refundProof, "refunds");
+    }
+
+    if (nextStatus === "diproses" && !uploadedProof) {
+      return {
+        success: false,
+        error: "Bukti refund wajib diupload saat status diubah ke diproses.",
+      };
+    }
+
+    const now = new Date();
+    const update = {
+      "refundRequest.status": nextStatus,
+      "refundRequest.adminNotes": adminNotes || null,
+      "refundRequest.refundProof": uploadedProof,
+    };
+
+    if (nextStatus === "diproses") {
+      update.status = "refunded";
+      update.refundAmount = Number(trx.price || 0);
+      update["refundRequest.processedBy"] = session.userId;
+      update["refundRequest.processedAt"] = now;
+      update["affiliateRefund.refundStatus"] = "full";
+      update["affiliateRefund.refundAmount"] = Number(trx.price || 0);
+      update["affiliateRefund.refundedAt"] = now;
+      update["affiliateRefund.commissionEffect"] = "void";
+    }
+
+    if (nextStatus === "selesai") {
+      update.status = "refunded";
+      update.refundAmount = Number(trx.price || 0);
+      update["refundRequest.completedBy"] = session.userId;
+      update["refundRequest.completedAt"] = now;
+      update["affiliateRefund.refundStatus"] = "full";
+      update["affiliateRefund.refundAmount"] = Number(trx.price || 0);
+      update["affiliateRefund.refundedAt"] = now;
+      update["affiliateRefund.commissionEffect"] = "void";
+    }
+
+    if (nextStatus === "ditolak") {
+      update.status = "completed";
+      update.refundAmount = 0;
+      update["refundRequest.approvedBy"] = null;
+      update["refundRequest.approvedAt"] = null;
+      update["refundRequest.processedBy"] = null;
+      update["refundRequest.processedAt"] = null;
+      update["refundRequest.completedBy"] = null;
+      update["refundRequest.completedAt"] = null;
+      update["affiliateRefund.refundStatus"] = "none";
+      update["affiliateRefund.refundAmount"] = 0;
+      update["affiliateRefund.refundedAt"] = null;
+      update["affiliateRefund.commissionEffect"] = "none";
+    }
+
+    await Transaction.updateOne({ _id: trx._id }, { $set: update });
+
+    revalidatePath("/admin/transactions");
+    revalidatePath("/student/transactions");
+    revalidatePath("/student/my-courses");
+    revalidatePath("/student/my-products");
+
+    return {
+      success: true,
+      message: `Status refund berhasil diubah ke ${nextStatus}.`,
+    };
+  } catch (error) {
+    console.error("updateRefundRequestByAdmin error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getRefundRequestsAdmin() {
+  await dbConnect();
+
+  try {
+    const session = await getCurrentUser();
+    if (!session?.userId || session.role !== "admin") {
+      return { success: false, error: "Unauthorized", data: [] };
+    }
+
+    const transactions = await Transaction.find({
+      "refundRequest.requestedAt": { $ne: null },
+    })
+      .populate({ path: "userId", select: "name email phone" })
+      .populate({
+        path: "item",
+        select: "name title",
+      })
+      .sort({ "refundRequest.requestedAt": -1, createdAt: -1 })
+      .lean();
+
+    return {
+      success: true,
+      data: transactions.map((trx) => ({
+        id: String(trx._id),
+        transactionCode: trx.transactionCode,
+        transactionStatus: trx.status,
+        createdAt: trx.createdAt ? new Date(trx.createdAt).toISOString() : null,
+        itemType: trx.itemType,
+        itemName:
+          trx.item?.name || trx.item?.title || trx.itemName || "Item tidak ada",
+        price: Number(trx.price || 0),
+        user: trx.userId
+          ? {
+              name: trx.userId.name || "User",
+              email: trx.userId.email || "-",
+              phone: trx.userId.phone || "-",
+            }
+          : null,
+        refundRequest: {
+          requestedAt: trx.refundRequest?.requestedAt
+            ? new Date(trx.refundRequest.requestedAt).toISOString()
+            : null,
+          reason: trx.refundRequest?.reason || null,
+          bankName: trx.refundRequest?.bankName || "-",
+          accountNumber: trx.refundRequest?.accountNumber || "-",
+          accountName: trx.refundRequest?.accountName || "-",
+          status: trx.refundRequest?.status || "-",
+          refundProof: trx.refundRequest?.refundProof || null,
+          adminNotes: trx.refundRequest?.adminNotes || null,
+        },
+      })),
+    };
+  } catch (error) {
+    console.error("getRefundRequestsAdmin error:", error);
+    return { success: false, error: error.message, data: [] };
   }
 }
 
@@ -739,6 +1170,29 @@ export async function createPayment(payload) {
       if (!product) throw new Error("Product tidak ditemukan.");
       itemName = product.title || product.name || itemName;
       price = Number(product.price) || 0;
+
+      const landing = await Landing.findOne({ productId: itemId })
+        .select("pricing.items")
+        .lean();
+      const pricingItems = landing?.pricing?.items || [];
+      const selectedPlan =
+        pricingItems.find((item) => String(item?._id) === planId) || null;
+
+      if (selectedPlan) {
+        const cookieStore = await cookies();
+        const sessionKey = await getOfferSessionKey(cookieStore);
+        const [offerState] = await resolveCourseOfferStates({
+          courseId: itemId,
+          plans: [selectedPlan],
+          sessionKey,
+          now: new Date(),
+        });
+
+        price = Number.isFinite(Number(offerState?.currentPrice))
+          ? Number(offerState.currentPrice)
+          : Number(selectedPlan.price) || 0;
+        itemName = `${product.title || product.name || "Product"} - ${selectedPlan.name}`;
+      }
     }
 
     if (!Number.isFinite(price) || price <= 0) {
@@ -957,12 +1411,13 @@ export async function getPurchasedProductsByUser(userId) {
       userId,
       status: "completed",
       itemType: "Product",
+      "refundRequest.status": { $nin: ["diajukan", "diproses"] },
     })
       .sort({ createdAt: -1 })
       .populate({
         path: "item",
         select:
-          "name image description rating totalReviews category price fileLink filePath videoLink note",
+          "name image description rating totalReviews category price fileLink filePath downloadableFiles videoLink note",
       })
       .lean({ virtuals: true });
 
@@ -986,6 +1441,9 @@ export async function getPurchasedProductsByUser(userId) {
           price: t.item.price,
           fileLink: t.item.fileLink,
           filePath: t.item.filePath,
+          downloadableFiles: Array.isArray(t.item.downloadableFiles)
+            ? t.item.downloadableFiles
+            : [],
           videoLink: t.item.videoLink,
           note: t.item.note,
         },
@@ -995,3 +1453,4 @@ export async function getPurchasedProductsByUser(userId) {
     return [];
   }
 }
+

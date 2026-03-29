@@ -1,3 +1,5 @@
+"use client";
+
 import { formatRupiah } from "@/lib/client-utils";
 import {
   TrendingUp,

@@ -165,7 +165,25 @@ export default function ProductList({ userId }) {
                     : p.image
                       ? p.image
                       : "/placeholder.png";
-                const downloadUrl = p.filePath || p.fileLink || "";
+                const downloadableFiles = Array.isArray(p.downloadableFiles)
+                  ? p.downloadableFiles.filter(
+                      (fileItem) => fileItem?.name && fileItem?.url,
+                    )
+                  : [];
+                const legacyDownloadUrl = p.filePath || p.fileLink || "";
+                const fallbackFiles =
+                  downloadableFiles.length > 0
+                    ? downloadableFiles
+                    : legacyDownloadUrl
+                      ? [
+                          {
+                            name:
+                              legacyDownloadUrl.split("/").pop() ||
+                              "File Produk",
+                            url: legacyDownloadUrl,
+                          },
+                        ]
+                      : [];
 
                 return (
                   <div
@@ -213,37 +231,42 @@ export default function ProductList({ userId }) {
                           <Receipt className='h-4 w-4' />
                           <span>{formatRupiah(it.price)}</span>
                         </div>
-                        <div className='flex items-center gap-2'>
-                          <Star className='h-4 w-4' />
-                          <span>
-                            {Number(p.rating || 0).toFixed(1)} / 5 (
-                            {p.totalReviews || 0} ulasan)
-                          </span>
-                        </div>
                       </div>
 
-                      <div className='mt-4 flex flex-wrap items-center gap-2'>
-                        {downloadUrl ? (
-                          <a
-                            href={downloadUrl}
-                            target='_blank'
-                            rel='noreferrer'
-                            download
-                            className='inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-200'
-                          >
-                            <Download className='h-4 w-4' />
-                            Unduh
-                          </a>
-                        ) : (
-                          <button
-                            type='button'
-                            className='inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-400 shadow-sm'
-                            disabled
-                          >
-                            <Download className='h-4 w-4' />
-                            Unduh
-                          </button>
-                        )}
+                      <div className='mt-4 space-y-3'>
+                        <div className='space-y-2'>
+                          {fallbackFiles.length > 0 ? (
+                            fallbackFiles.map((fileItem, index) => (
+                              <a
+                                key={`${fileItem.url}-${index}`}
+                                href={fileItem.url}
+                                target='_blank'
+                                rel='noreferrer'
+                                download
+                                className='inline-flex h-10 w-full items-center justify-between gap-3 rounded-2xl bg-zinc-900 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 focus:outline-none focus:ring-4 focus:ring-zinc-200'
+                              >
+                                <span className='flex min-w-0 items-center gap-2'>
+                                  <Download className='h-4 w-4 shrink-0' />
+                                  <span className='truncate'>
+                                    {fileItem.name}
+                                  </span>
+                                </span>
+                                <span className='text-xs uppercase tracking-wide text-zinc-300'>
+                                  Unduh
+                                </span>
+                              </a>
+                            ))
+                          ) : (
+                            <button
+                              type='button'
+                              className='inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 text-sm font-medium text-zinc-400 shadow-sm'
+                              disabled
+                            >
+                              <Download className='h-4 w-4' />
+                              File belum tersedia
+                            </button>
+                          )}
+                        </div>
 
                         {p.videoLink ? (
                           <a
@@ -308,50 +331,50 @@ export default function ProductList({ userId }) {
         <div className='fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4'>
           <div className='flex min-h-full items-center justify-center'>
             <div className='w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-xl'>
-            <div className='flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4'>
-              <div>
-                <div className='text-xs font-semibold uppercase tracking-wide text-zinc-400'>
-                  Catatan Produk
+              <div className='flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4'>
+                <div>
+                  <div className='text-xs font-semibold uppercase tracking-wide text-zinc-400'>
+                    Catatan Produk
+                  </div>
+                  <h3 className='mt-1 text-base font-semibold text-zinc-900'>
+                    {noteModal.title || "Catatan"}
+                  </h3>
                 </div>
-                <h3 className='mt-1 text-base font-semibold text-zinc-900'>
-                  {noteModal.title || "Catatan"}
-                </h3>
+                <button
+                  type='button'
+                  onClick={closeNote}
+                  className='rounded-full border border-zinc-200 p-2 text-zinc-600 transition hover:bg-zinc-50'
+                  aria-label='Tutup'
+                >
+                  <X className='h-4 w-4' />
+                </button>
               </div>
-              <button
-                type='button'
-                onClick={closeNote}
-                className='rounded-full border border-zinc-200 p-2 text-zinc-600 transition hover:bg-zinc-50'
-                aria-label='Tutup'
-              >
-                <X className='h-4 w-4' />
-              </button>
-            </div>
 
-            <div className='px-5 py-4'>
-              <div className='max-h-[60vh] overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 whitespace-pre-wrap'>
-                {noteModal.text}
+              <div className='px-5 py-4'>
+                <div className='max-h-[60vh] overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 whitespace-pre-wrap'>
+                  {noteModal.text}
+                </div>
               </div>
-            </div>
 
-            <div className='flex flex-col-reverse gap-2 border-t border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-end'>
-              <button
-                type='button'
-                onClick={closeNote}
-                className='inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50'
-              >
-                Tutup
-              </button>
-              <button
-                type='button'
-                onClick={() => {
-                  navigator.clipboard?.writeText(noteModal.text || "");
-                }}
-                className='inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800'
-              >
-                <Copy className='h-4 w-4' />
-                Salin Catatan
-              </button>
-            </div>
+              <div className='flex flex-col-reverse gap-2 border-t border-zinc-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-end'>
+                <button
+                  type='button'
+                  onClick={closeNote}
+                  className='inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50'
+                >
+                  Tutup
+                </button>
+                <button
+                  type='button'
+                  onClick={() => {
+                    navigator.clipboard?.writeText(noteModal.text || "");
+                  }}
+                  className='inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-800'
+                >
+                  <Copy className='h-4 w-4' />
+                  Salin Catatan
+                </button>
+              </div>
             </div>
           </div>
         </div>

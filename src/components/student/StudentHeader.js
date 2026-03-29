@@ -2,14 +2,7 @@
 
 import ThemeToggle from "@/components/ui/ThemeToggle";
 import { Menu, Bell } from "lucide-react";
-
-const getInitial = (name) => {
-  if (!name) return "U";
-  const parts = String(name).trim().split(" ");
-  const first = parts[0]?.[0] || "";
-  const second = parts.length > 1 ? parts[1]?.[0] : "";
-  return (first + second).toUpperCase();
-};
+import SafeAvatar from "@/components/ui/SafeAvatar";
 
 export default function StudentHeader({ toggleSidebar, user }) {
   return (
@@ -33,14 +26,21 @@ export default function StudentHeader({ toggleSidebar, user }) {
 
         <button className='flex items-center gap-2'>
           {user?.avatar ? (
-            <img
+            <SafeAvatar
               src={user.avatar}
-              alt={user.name || "User"}
-              className='w-9 h-9 rounded-full object-cover border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all'
+              name={user.name}
+              imgClassName='w-9 h-9 rounded-full object-cover border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all'
+              fallbackClassName='w-9 h-9 rounded-full bg-linear-to-tr from-violet-500 to-fuchsia-500 border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all flex items-center justify-center text-white font-bold text-sm'
             />
           ) : (
             <div className='w-9 h-9 rounded-full bg-linear-to-tr from-violet-500 to-fuchsia-500 border-2 border-white dark:border-zinc-800 shadow-sm ring-2 ring-transparent hover:ring-violet-200 dark:hover:ring-violet-900 transition-all flex items-center justify-center text-white font-bold text-sm'>
-              {getInitial(user?.name)}
+              {String(user?.name || "U")
+                .trim()
+                .split(" ")
+                .map((part) => part?.[0] || "")
+                .slice(0, 2)
+                .join("")
+                .toUpperCase() || "U"}
             </div>
           )}
         </button>

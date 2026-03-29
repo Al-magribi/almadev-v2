@@ -73,10 +73,11 @@ export default async function CourseLandingPage({ params, searchParams }) {
   }
   const sParams = await searchParams;
   const referralCode = String(sParams?.ref || "").trim().toUpperCase() || null;
+  const hasReferralCode = Boolean(referralCode);
   const effectiveUtm = {
-    utm_source: sParams?.utm_source || "website",
-    utm_medium: sParams?.utm_medium || "landing",
-    utm_campaign: sParams?.utm_campaign || "direct",
+    utm_source: sParams?.utm_source || (hasReferralCode ? "affiliate" : "website"),
+    utm_medium: sParams?.utm_medium || (hasReferralCode ? "referral" : "landing"),
+    utm_campaign: sParams?.utm_campaign || (hasReferralCode ? referralCode : "direct"),
     utm_term: sParams?.utm_term || null,
     utm_content: sParams?.utm_content || null,
   };

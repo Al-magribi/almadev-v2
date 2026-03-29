@@ -9,10 +9,26 @@ export default function TabSettings({
   newImageFile,
   setNewImageFile,
 }) {
+  const formatThousands = (value) => {
+    const digits = String(value ?? "").replace(/\D/g, "");
+    if (!digits) return "";
+    return Number(digits).toLocaleString("id-ID");
+  };
+
+  const normalizeNumericInput = (value) =>
+    String(value ?? "").replace(/\D/g, "");
+
   // Handler perubahan input teks biasa
   const handleChange = (e) => {
     const { name, value } = e.target;
     setCourse((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCurrencyChange = (name) => (e) => {
+    setCourse((prev) => ({
+      ...prev,
+      [name]: normalizeNumericInput(e.target.value),
+    }));
   };
 
   // Handler pilih file gambar
@@ -73,13 +89,36 @@ export default function TabSettings({
                   Rp
                 </span>
                 <input
-                  type='number'
+                  type='text'
+                  inputMode='numeric'
                   name='price'
-                  value={course.price}
-                  onChange={handleChange}
+                  value={formatThousands(course.price)}
+                  onChange={handleCurrencyChange("price")}
                   className='w-full pl-10 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all shadow-sm'
                 />
               </div>
+            </div>
+
+            <div className='space-y-2'>
+              <label className='text-sm font-semibold text-zinc-700 dark:text-zinc-300'>
+                Reward Affiliate
+              </label>
+              <div className='relative'>
+                <span className='absolute left-4 top-2.5 text-zinc-400 text-sm font-medium'>
+                  Rp
+                </span>
+                <input
+                  type='text'
+                  inputMode='numeric'
+                  name='affiliateRewardAmount'
+                  value={formatThousands(course.affiliateRewardAmount)}
+                  onChange={handleCurrencyChange("affiliateRewardAmount")}
+                  className='w-full pl-10 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all shadow-sm'
+                />
+              </div>
+              <p className='text-xs text-zinc-500'>
+                Nominal reward yang diterima affiliate untuk setiap transaksi kursus ini.
+              </p>
             </div>
 
             <div className='space-y-2'>

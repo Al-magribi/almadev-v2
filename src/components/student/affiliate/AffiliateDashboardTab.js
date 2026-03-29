@@ -20,6 +20,10 @@ export default function AffiliateDashboardTab({
           <QuickInfo label='Kode referral' value={affiliateCode} />
           <QuickInfo label='Jadwal payout berikutnya' value={nextPayoutDate} />
           <QuickInfo
+            label='Total reward'
+            value={formatRupiah(metrics?.rewardTotal || 0)}
+          />
+          <QuickInfo
             label='Reward siap proses'
             value={formatRupiah(metrics?.rewardReady || 0)}
           />

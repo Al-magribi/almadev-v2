@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   User,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { updateUserProfile, changeUserPassword } from "@/actions/user-actions";
 import ProfileAvatarCard from "@/components/admin/account/ProfileAvatarCard";
+import SafeAvatar from "@/components/ui/SafeAvatar";
 
 const sectionMotion = {
   hidden: { opacity: 0, y: 12 },
@@ -56,13 +56,6 @@ export default function StudentProfilePage({ user }) {
       message: "",
     },
   );
-
-  const avatarSrc =
-    user?.avatar && user.avatar.startsWith("http")
-      ? user.avatar
-      : user?.avatar
-        ? user.avatar
-        : "/placeholder.png";
 
   return (
     <div className='mx-auto w-full max-w-5xl'>
@@ -115,12 +108,11 @@ export default function StudentProfilePage({ user }) {
 
                 <div className='mt-6 flex flex-col items-center'>
                   <div className='relative h-28 w-28 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800'>
-                    <Image
-                      src={avatarSrc}
-                      alt='Avatar'
-                      fill
-                      className='object-cover'
-                      sizes='112px'
+                    <SafeAvatar
+                      src={user?.avatar}
+                      name={user?.name || "Student"}
+                      imgClassName='h-full w-full object-cover'
+                      fallbackClassName='flex h-full w-full items-center justify-center bg-zinc-100 text-xl font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
                     />
                   </div>
                   <p className='mt-3 text-sm font-medium text-zinc-900 dark:text-zinc-100'>

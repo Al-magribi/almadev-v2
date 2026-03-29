@@ -1,5 +1,5 @@
 import { getCourseDetail } from "@/actions/course-actions";
-import { getProductDetail } from "@/actions/product-actions";
+import { getProductDetail, getProductLandingDetail } from "@/actions/product-actions";
 import { getSettings } from "@/actions/setting-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import Checkout from "@/components/marketing/checkout/Checkout"; // Sesuaikan path import
@@ -23,6 +23,11 @@ const normalizePhone = (value = "") => {
   return digits;
 };
 
+const normalizeReferralCode = (value = "") => {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized || null;
+};
+
 export default async function CheckoutPage({ searchParams }) {
   // 1. Ambil data dari URL
   const query = await searchParams;
@@ -42,6 +47,11 @@ export default async function CheckoutPage({ searchParams }) {
     utm_content,
     ref,
   } = query;
+  const resolvedReferralCode =
+    normalizeReferralCode(ref) ||
+    (String(utm_medium || "").trim().toLowerCase() === "referral"
+      ? normalizeReferralCode(utm_campaign)
+      : null);
 
   const settings = await getSettings();
   const metaPixelId = settings?.data?.metaPixelId || "";
@@ -53,8 +63,37 @@ export default async function CheckoutPage({ searchParams }) {
       return redirect("/");
     }
 
-    const product = await getProductDetail(productId);
+    const dataProduct = await getProductLandingDetail(productId);
+    const product = dataProduct?.product;
+    const landing = dataProduct?.landing;
     if (!product) return notFound();
+
+    const pricingItems = landing?.pricing?.items || [];
+    const selectedPlan =
+      pricingItems.find((p) => String(p?._id) === String(planId || "")) ||
+      pricingItems.find((p) => p.name === planName) ||
+      pricingItems[0] ||
+      null;
+
+    const cookieStore = await cookies();
+    const sessionKey = await getOfferSessionKey(cookieStore);
+    const [offerState] = selectedPlan
+      ? await resolveCourseOfferStates({
+          courseId: productId,
+          plans: [selectedPlan],
+          sessionKey,
+          now: new Date(),
+        })
+      : [];
+
+    const realPrice = Number.isFinite(Number(offerState?.currentPrice))
+      ? Number(offerState.currentPrice)
+      : selectedPlan
+        ? Number(selectedPlan.price) || 0
+        : Number(product.price) || 0;
+    const displayItemName = selectedPlan
+      ? `${product.name} - ${selectedPlan.name}`
+      : product.name;
 
     const sessionUser = await getCurrentUser();
     const userData = {
@@ -66,10 +105,12 @@ export default async function CheckoutPage({ searchParams }) {
 
     const item = {
       _id: product._id.toString(),
-      name: product.name,
-      price: product.price,
+      name: displayItemName,
+      price: realPrice,
       image: product.image || "/placeholder-course.jpg",
-      planName: planName || "Produk Digital",
+      benefits: Array.isArray(product.benefits) ? product.benefits : [],
+      planId: selectedPlan?._id?.toString?.() || null,
+      planName: selectedPlan?.name || planName || "Produk Digital",
       itemType: "Product",
     };
 
@@ -84,7 +125,7 @@ export default async function CheckoutPage({ searchParams }) {
           utmCampaign: utm_campaign || null,
           utmTerm: utm_term || null,
           utmContent: utm_content || null,
-          referralCode: ref || null,
+          referralCode: resolvedReferralCode,
         }}
       />
     );
@@ -161,8 +202,9 @@ export default async function CheckoutPage({ searchParams }) {
         utmCampaign: utm_campaign || null,
         utmTerm: utm_term || null,
         utmContent: utm_content || null,
-        referralCode: ref || null,
+        referralCode: resolvedReferralCode,
       }}
     />
   );
 }
+

@@ -21,7 +21,7 @@ import Image from "next/image";
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
   { name: "Kursus", icon: BookOpen, href: "/admin/courses" },
-  { name: "Produk Digital", icon: Package, href: "/admin/products" },
+  { name: "Produk", icon: Package, href: "/admin/products" },
   { name: "Bootcamp", icon: LaptopMinimal, href: "/admin/bootcamp" },
   { name: "Pesan", icon: MessagesSquare, href: "/admin/messages" },
   { name: "Transaksi", icon: CreditCard, href: "/admin/transactions" },

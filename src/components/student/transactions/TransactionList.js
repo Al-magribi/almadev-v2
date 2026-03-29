@@ -17,9 +17,14 @@ import {
   XCircle,
   RefreshCcw,
   ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 import { formatDate, formatRupiah } from "@/lib/client-utils";
-import { getTransactionsByUser } from "@/actions/transaction-actions";
+import {
+  getTransactionsByUser,
+  submitRefundRequest,
+} from "@/actions/transaction-actions";
+import RefundRequestModal from "@/components/student/transactions/RefundRequestModal";
 
 const statusStyles = {
   pending:
@@ -104,30 +109,46 @@ function StatCard({ title, value, icon: Icon, tone }) {
 export default function TransactionList({ userId }) {
   const [loading, setLoading] = React.useState(true);
   const [items, setItems] = React.useState([]);
+  const [bankInfo, setBankInfo] = React.useState(null);
   const [query, setQuery] = React.useState("");
   const [filterStatus, setFilterStatus] = React.useState("all");
   const [filterType, setFilterType] = React.useState("all");
+  const [selectedRefundTransaction, setSelectedRefundTransaction] =
+    React.useState(null);
+  const [refundError, setRefundError] = React.useState("");
+  const [refundSuccess, setRefundSuccess] = React.useState("");
+  const [isSubmittingRefund, setIsSubmittingRefund] = React.useState(false);
+
+  const loadTransactions = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      if (!userId) {
+        setItems([]);
+        setBankInfo(null);
+        return;
+      }
+
+      const data = await getTransactionsByUser(userId);
+      setItems(Array.isArray(data?.items) ? data.items : []);
+      setBankInfo(data?.bankInfo || null);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
 
   React.useEffect(() => {
-    let mounted = true;
+    let active = true;
+
     async function run() {
-      setLoading(true);
-      try {
-        if (!userId) {
-          if (mounted) setItems([]);
-          return;
-        }
-        const data = await getTransactionsByUser(userId);
-        if (mounted) setItems(Array.isArray(data) ? data : []);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      if (!active) return;
+      await loadTransactions();
     }
+
     run();
     return () => {
-      mounted = false;
+      active = false;
     };
-  }, [userId]);
+  }, [loadTransactions]);
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -149,9 +170,42 @@ export default function TransactionList({ userId }) {
     const total = items.length;
     const completed = items.filter((t) => t.status === "completed").length;
     const pending = items.filter((t) => t.status === "pending").length;
-    const totalSpent = items.reduce((acc, cur) => acc + (cur.price || 0), 0);
+    const totalSpent = items.reduce(
+      (acc, cur) =>
+        acc + Math.max(0, Number(cur.price || 0) - Number(cur.refundAmount || 0)),
+      0,
+    );
     return { total, completed, pending, totalSpent };
   }, [items]);
+
+  const handleRefundSubmit = async (form) => {
+    if (!selectedRefundTransaction?.id) return;
+
+    setRefundError("");
+    setRefundSuccess("");
+    setIsSubmittingRefund(true);
+
+    try {
+      const result = await submitRefundRequest({
+        transactionId: selectedRefundTransaction.id,
+        ...form,
+      });
+
+      if (!result?.success) {
+        setRefundError(result?.error || "Pengajuan refund gagal diproses.");
+        return;
+      }
+
+      setRefundSuccess(result?.message || "Pengajuan refund berhasil dikirim.");
+      setSelectedRefundTransaction(null);
+      await loadTransactions();
+    } catch (error) {
+      console.error("submit refund error:", error);
+      setRefundError("Terjadi kesalahan sistem saat mengirim refund.");
+    } finally {
+      setIsSubmittingRefund(false);
+    }
+  };
 
   return (
     <div className='mx-auto w-full max-w-6xl'>
@@ -165,7 +219,8 @@ export default function TransactionList({ userId }) {
               Transaksi Saya
             </h1>
             <p className='mt-1 text-sm text-zinc-600 dark:text-zinc-400'>
-              Pantau status pembayaran, detail item, dan histori transaksi kamu.
+              Pantau status pembayaran, detail item, histori transaksi, dan
+              pengajuan refund kamu.
             </p>
           </div>
         </div>
@@ -230,16 +285,24 @@ export default function TransactionList({ userId }) {
             value={stats.completed}
             icon={ShieldCheck}
           />
-          <StatCard
-            title='Menunggu'
-            value={stats.pending}
-            icon={Clock}
-          />
+          <StatCard title='Menunggu' value={stats.pending} icon={Clock} />
           <StatCard
             title='Total Pengeluaran'
             value={formatRupiah(stats.totalSpent)}
             icon={CreditCard}
           />
+        </div>
+      )}
+
+      {(refundError || refundSuccess) && (
+        <div
+          className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
+            refundError
+              ? "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200"
+          }`}
+        >
+          {refundError || refundSuccess}
         </div>
       )}
 
@@ -292,6 +355,13 @@ export default function TransactionList({ userId }) {
                   ? trx.item.image
                   : "/placeholder.png";
             const isCourse = trx.itemType === "Course";
+            const refundEligibility = trx.refundEligibility || {};
+            const refundDisplayAmount =
+              trx.refundAmount || (trx.refundRequest ? trx.price : 0);
+            const netAmount = Math.max(
+              0,
+              Number(trx.price || 0) - Number(trx.refundAmount || 0),
+            );
 
             return (
               <motion.div
@@ -341,8 +411,7 @@ export default function TransactionList({ userId }) {
                       <div className='flex items-center gap-2'>
                         <CreditCard className='h-4 w-4' />
                         <span>
-                          {paymentLabels[trx.paymentMethod] ||
-                            "Metode Lainnya"}
+                          {paymentLabels[trx.paymentMethod] || "Metode Lainnya"}
                         </span>
                       </div>
                       <div className='flex items-center gap-2'>
@@ -351,9 +420,16 @@ export default function TransactionList({ userId }) {
                       </div>
                       <div className='flex items-center gap-2'>
                         <Receipt className='h-4 w-4' />
-                        <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
-                          {formatRupiah(trx.price)}
-                        </span>
+                        <div>
+                          <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {formatRupiah(netAmount)}
+                          </span>
+                          {trx.refundRequest?.status ? (
+                            <div className='text-[11px] text-zinc-500 dark:text-zinc-400'>
+                              Harga awal {formatRupiah(trx.price)}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                       {trx.utmSource && (
                         <div className='flex items-center gap-2'>
@@ -365,21 +441,54 @@ export default function TransactionList({ userId }) {
 
                     {(trx.refundAmount || trx.refundRequest) && (
                       <div className='mt-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-700 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-200'>
-                        Refund: {formatRupiah(trx.refundAmount || 0)}{" "}
-                        {trx.refundRequest?.status
-                          ? `• ${trx.refundRequest.status}`
-                          : ""}
+                        <div>
+                          Refund {formatRupiah(refundDisplayAmount)}
+                          {trx.refundRequest?.status
+                            ? ` - ${trx.refundRequest.status}`
+                            : ""}
+                        </div>
+                        {trx.refundRequest?.refundProof ? (
+                          <div className='mt-2'>
+                            <a
+                              href={trx.refundRequest.refundProof}
+                              target='_blank'
+                              rel='noreferrer'
+                              className='font-semibold text-blue-600 dark:text-blue-300'
+                            >
+                              Lihat bukti refund
+                            </a>
+                          </div>
+                        ) : null}
                       </div>
                     )}
 
-                    {trx.midtransStatus && (
-                      <div className='mt-2 text-[11px] text-zinc-500 dark:text-zinc-400'>
-                        Status Midtrans:{" "}
-                        <span className='font-medium text-zinc-700 dark:text-zinc-200'>
-                          {trx.midtransStatus}
-                        </span>
+                    {!trx.refundRequest?.status &&
+                    trx.status === "completed" ? (
+                      <div className='mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300'>
+                        {trx.itemType === "Course" ? (
+                          <div>
+                            Progress belajar:{" "}
+                            <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                              {refundEligibility.progressPercent || 0}%
+                            </span>
+                          </div>
+                        ) : null}
+                        <div>
+                          Batas refund:{" "}
+                          <span className='font-semibold text-zinc-900 dark:text-zinc-100'>
+                            {refundEligibility.deadlineAt
+                              ? formatDate(refundEligibility.deadlineAt)
+                              : "-"}
+                          </span>
+                        </div>
+                        {!refundEligibility.eligible &&
+                        refundEligibility.reason ? (
+                          <div className='mt-1 text-amber-700 dark:text-amber-300'>
+                            {refundEligibility.reason}
+                          </div>
+                        ) : null}
                       </div>
-                    )}
+                    ) : null}
 
                     <div className='mt-4 flex flex-wrap items-center gap-2'>
                       <button
@@ -392,6 +501,21 @@ export default function TransactionList({ userId }) {
                         <Copy className='h-4 w-4' />
                         Copy Kode
                       </button>
+
+                      {refundEligibility.eligible ? (
+                        <button
+                          type='button'
+                          className='inline-flex h-9 items-center justify-center gap-2 rounded-2xl bg-zinc-900 px-3 text-xs font-semibold text-white transition hover:bg-zinc-800 dark:bg-violet-600 dark:hover:bg-violet-500'
+                          onClick={() => {
+                            setRefundError("");
+                            setRefundSuccess("");
+                            setSelectedRefundTransaction(trx);
+                          }}
+                        >
+                          <RotateCcw className='h-4 w-4' />
+                          Ajukan Refund
+                        </button>
+                      ) : null}
 
                       <div className='inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400'>
                         <span>
@@ -409,6 +533,18 @@ export default function TransactionList({ userId }) {
           })}
         </motion.div>
       )}
+
+      <RefundRequestModal
+        open={Boolean(selectedRefundTransaction)}
+        transaction={selectedRefundTransaction}
+        initialBankInfo={bankInfo}
+        onClose={() => {
+          if (isSubmittingRefund) return;
+          setSelectedRefundTransaction(null);
+        }}
+        onSubmit={handleRefundSubmit}
+        isSubmitting={isSubmittingRefund}
+      />
     </div>
   );
 }

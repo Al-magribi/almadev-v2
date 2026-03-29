@@ -6,6 +6,7 @@ import CheckoutModal from "./CheckoutModal";
 
 export default function ProductCheckoutButton({
   product,
+  planData,
   user,
   utmData,
   label = "Beli Sekarang",
@@ -32,7 +33,13 @@ export default function ProductCheckoutButton({
           user={user}
           itemId={product?._id}
           itemType='Product'
-          planName='Produk Digital'
+          planData={planData}
+          courseData={{
+            name: product?.name,
+            price: Number(planData?.price ?? product?.price ?? 0),
+            image: product?.image,
+          }}
+          planName={planData?.name || 'Produk Digital'}
           utmData={utmData}
           metaPixelId={metaPixelId}
         />

@@ -20,11 +20,11 @@ import {
   Receipt,
   Trash2,
 } from "lucide-react";
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import DeleteConfirmation from "@/components/ui/DeleteConfirmation";
 import { deleteTransactionByAdmin } from "@/actions/transaction-actions";
+import SafeAvatar from "@/components/ui/SafeAvatar";
 
 // Helper Status Color
 const getStatusBadge = (status) => {
@@ -80,6 +80,9 @@ export default function TransactionList({ transactions = [] }) {
       currency: "IDR",
       minimumFractionDigits: 0,
     }).format(num);
+
+  const getNetAmount = (trx) =>
+    Math.max(0, Number(trx.price || 0) - Number(trx.refundAmount || 0));
 
   const formatDateTime = (value) => {
     if (!value) return "-";
@@ -232,12 +235,11 @@ export default function TransactionList({ transactions = [] }) {
                     <div className='flex items-center gap-3'>
                       <div className='w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0'>
                         {trx.userId?.avatar ? (
-                          <Image
+                          <SafeAvatar
                             src={trx.userId.avatar}
-                            alt='avatar'
-                            width={32}
-                            height={32}
-                            className='rounded-full object-cover'
+                            name={trx.userId?.name}
+                            imgClassName='h-8 w-8 rounded-full object-cover'
+                            fallbackClassName='flex h-8 w-8 items-center justify-center rounded-full bg-violet-100 text-xs font-semibold text-violet-600 dark:bg-violet-900/30 dark:text-violet-300'
                           />
                         ) : (
                           <User size={14} />
@@ -287,7 +289,13 @@ export default function TransactionList({ transactions = [] }) {
 
                   {/* Harga */}
                   <td className='px-6 py-4 font-medium text-zinc-900 dark:text-zinc-100'>
-                    {toIDR(trx.price)}
+                    <div>{toIDR(getNetAmount(trx))}</div>
+                    {trx.refundRequest?.status ? (
+                      <div className='text-xs text-rose-500 dark:text-rose-300'>
+                        Refund {toIDR(trx.refundAmount || trx.price || 0)} •{" "}
+                        {trx.refundRequest.status}
+                      </div>
+                    ) : null}
                   </td>
 
                   {/* Status */}
@@ -419,8 +427,17 @@ export default function TransactionList({ transactions = [] }) {
                         </div>
                         <div className='flex items-center gap-2'>
                           <Landmark className='h-4 w-4 text-zinc-400' />
-                          <span>{toIDR(selected.price)}</span>
+                          <span>{toIDR(getNetAmount(selected))}</span>
                         </div>
+                        {selected.refundRequest?.status ? (
+                          <div className='flex items-center gap-2'>
+                            <Receipt className='h-4 w-4 text-zinc-400' />
+                            <span>
+                              Refund {toIDR(selected.refundAmount || selected.price || 0)} -{" "}
+                              {selected.refundRequest.status}
+                            </span>
+                          </div>
+                        ) : null}
                         {selected.utmSource && (
                           <div className='flex items-center gap-2'>
                             <Tags className='h-4 w-4 text-zinc-400' />
@@ -436,18 +453,17 @@ export default function TransactionList({ transactions = [] }) {
                         Pelanggan
                       </div>
                       <div className='mt-3 flex items-center gap-3'>
-                        <div className='h-10 w-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center'>
-                          {selected.userId?.avatar ? (
-                            <Image
-                              src={selected.userId.avatar}
-                              alt='avatar'
-                              width={40}
-                              height={40}
-                              className='rounded-full object-cover'
-                            />
-                          ) : (
-                            <User size={16} />
-                          )}
+                      <div className='h-10 w-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center'>
+                        {selected.userId?.avatar ? (
+                          <SafeAvatar
+                            src={selected.userId.avatar}
+                            name={selected.userId?.name}
+                            imgClassName='h-10 w-10 rounded-full object-cover'
+                            fallbackClassName='flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-sm font-semibold text-violet-600'
+                          />
+                        ) : (
+                          <User size={16} />
+                        )}
                         </div>
                         <div className='min-w-0'>
                           <div className='text-sm font-semibold text-zinc-900'>

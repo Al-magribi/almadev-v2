@@ -102,6 +102,10 @@ export default function CourseManager({ initialData }) {
       // Append data dasar (tetap sama)
       formData.append("name", courseData.name);
       formData.append("price", courseData.price || 0);
+      formData.append(
+        "affiliateRewardAmount",
+        courseData.affiliateRewardAmount || 0,
+      );
       formData.append("description", courseData.description || "");
       formData.append("video", courseData.video || "");
       formData.append("isActive", courseData.isActive);

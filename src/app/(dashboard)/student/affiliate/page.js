@@ -7,6 +7,7 @@ import AffiliateVisit from "@/models/AffiliateVisit";
 import ViewData from "@/models/ViewData";
 import dbConnect from "@/lib/db";
 import Transaction from "@/models/Transaction";
+import mongoose from "mongoose";
 import { headers } from "next/headers";
 
 const getBaseUrl = async (settingsDomain) => {
@@ -31,6 +32,12 @@ const buildCatalog = ({ user, courses, products, baseUrl }) => {
   const referralCode = user?.referralCode || "";
   const buildLink = (path) =>
     `${baseUrl}${path}?ref=${referralCode}&utm_source=affiliate&utm_medium=referral&utm_campaign=${referralCode}`;
+  const slugifyProductName = (name = "") =>
+    String(name || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
 
   const courseItems = (courses || [])
     .filter((course) => course?.isActive)
@@ -47,7 +54,7 @@ const buildCatalog = ({ user, courses, products, baseUrl }) => {
     });
 
   const productItems = (products || []).map((product) => {
-    const destinationPath = `/products/${product._id}`;
+    const destinationPath = `/products/${product.slug || slugifyProductName(product.name) || product._id}`;
     return {
       id: String(product._id),
       type: "Product",
@@ -126,25 +133,44 @@ export default async function StudentAffiliatePage() {
 
   if (user?.referralCode) {
     await dbConnect();
+    const userObjectId = mongoose.Types.ObjectId.isValid(user._id)
+      ? new mongoose.Types.ObjectId(user._id)
+      : null;
+    const affiliateTransactionQuery = {
+      $or: [
+        ...(userObjectId ? [{ "affiliate.referrerId": userObjectId }] : []),
+        { "affiliate.referralCode": user.referralCode },
+        {
+          utmMedium: "referral",
+          utmCampaign: user.referralCode,
+        },
+      ],
+    };
     const [transactionAgg, refundCount, visitDocs, fallbackViewDocs, transactionDocs] =
       await Promise.all([
         Transaction.aggregate([
           {
-            $match: {
-              "affiliate.referrerId": user._id,
-              status: "completed",
-            },
+            $match: affiliateTransactionQuery,
           },
           {
             $group: {
               _id: null,
               transactions: { $sum: 1 },
-              rewardTotal: { $sum: "$affiliate.rewardAmount" },
+              rewardTotal: {
+                $sum: {
+                  $cond: [
+                    { $eq: ["$status", "completed"] },
+                    "$affiliate.rewardAmount",
+                    0,
+                  ],
+                },
+              },
               rewardReady: {
                 $sum: {
                   $cond: [
                     {
                       $and: [
+                        { $eq: ["$status", "completed"] },
                         { $ne: ["$affiliateRefund.refundStatus", "full"] },
                         { $ne: ["$affiliateRefund.commissionEffect", "void"] },
                       ],
@@ -158,11 +184,11 @@ export default async function StudentAffiliatePage() {
           },
         ]),
         Transaction.countDocuments({
-          "affiliate.referrerId": user._id,
+          ...affiliateTransactionQuery,
           "affiliateRefund.refundStatus": { $ne: "none" },
         }),
         AffiliateVisit.find({
-          referrerId: user._id,
+          ...(userObjectId ? { referrerId: userObjectId } : {}),
           itemType: { $in: validItemTypes },
         })
           .sort({ createdAt: -1 })
@@ -180,7 +206,7 @@ export default async function StudentAffiliatePage() {
           .sort({ createdAt: -1 })
           .limit(200)
           .lean(),
-        Transaction.find({ "affiliate.referrerId": user._id })
+        Transaction.find(affiliateTransactionQuery)
           .populate({ path: "userId", select: "name email" })
           .sort({ createdAt: -1 })
           .limit(100)
@@ -223,12 +249,12 @@ export default async function StudentAffiliatePage() {
         referralCode: view.referralCode || user.referralCode,
       }));
 
-    const visitorMap = new Map();
+    const visitorEventMap = new Map();
     [...primaryVisitors, ...fallbackVisitors].forEach((visitor) => {
       const visitMinute = visitor?.visitedAt
         ? Math.floor(new Date(visitor.visitedAt).getTime() / 60000)
         : "na";
-      const dedupeKey = [
+      const eventKey = [
         String(visitor.itemType || ""),
         String(visitor.referralCode || ""),
         String(visitor.landingPath || ""),
@@ -236,12 +262,49 @@ export default async function StudentAffiliatePage() {
         String(visitMinute),
       ].join("|");
 
-      if (!visitorMap.has(dedupeKey)) {
-        visitorMap.set(dedupeKey, visitor);
+      if (!visitorEventMap.has(eventKey)) {
+        visitorEventMap.set(eventKey, visitor);
       }
     });
 
-    visitors = Array.from(visitorMap.values()).sort((a, b) => {
+    const visitorEvents = Array.from(visitorEventMap.values());
+    const groupedVisitorMap = new Map();
+
+    visitorEvents.forEach((visitor) => {
+      const groupKey = [
+        String(visitor.itemType || ""),
+        String(visitor.referralCode || ""),
+        String(visitor.landingPath || ""),
+        String(visitor.utmCampaign || ""),
+      ].join("|");
+      const existing = groupedVisitorMap.get(groupKey);
+
+      if (!existing) {
+        groupedVisitorMap.set(groupKey, {
+          ...visitor,
+          visitCount: 1,
+        });
+        return;
+      }
+
+      const currentVisitedAt = existing?.visitedAt
+        ? new Date(existing.visitedAt).getTime()
+        : 0;
+      const nextVisitedAt = visitor?.visitedAt
+        ? new Date(visitor.visitedAt).getTime()
+        : 0;
+
+      existing.visitCount += 1;
+      existing.converted = existing.converted || visitor.converted;
+      if (!existing.convertedAt && visitor.convertedAt) {
+        existing.convertedAt = visitor.convertedAt;
+      }
+      if (nextVisitedAt >= currentVisitedAt) {
+        existing.visitedAt = visitor.visitedAt;
+      }
+    });
+
+    visitors = Array.from(groupedVisitorMap.values()).sort((a, b) => {
       const left = a?.visitedAt ? new Date(a.visitedAt).getTime() : 0;
       const right = b?.visitedAt ? new Date(b.visitedAt).getTime() : 0;
       return right - left;
@@ -283,8 +346,8 @@ export default async function StudentAffiliatePage() {
 
     metrics = {
       ...metrics,
-      visitors: visitors.length,
-      conversions: visitors.filter((item) => item.converted).length,
+      visitors: visitorEvents.length,
+      conversions: visitorEvents.filter((item) => item.converted).length,
       transactions: transactionAgg[0]?.transactions || 0,
       rewardTotal: transactionAgg[0]?.rewardTotal || 0,
       rewardReady: transactionAgg[0]?.rewardReady || 0,

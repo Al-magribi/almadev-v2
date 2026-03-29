@@ -18,7 +18,7 @@ export default async function sitemap() {
   const [setting, courses, products] = await Promise.all([
     Setting.findOne({}).lean(),
     Course.find({ isActive: true }).select("slug name updatedAt createdAt").lean(),
-    Product.find({ status: "published" }).select("_id updatedAt createdAt").lean(),
+    Product.find({ status: "published" }).select("name updatedAt createdAt").lean(),
   ]);
 
   const baseUrl = normalizeBaseUrl(setting?.domain);
@@ -53,7 +53,7 @@ export default async function sitemap() {
     .filter(Boolean);
 
   const productUrls = products.map((product) => ({
-    url: `${baseUrl}/products/${String(product._id)}`,
+    url: `${baseUrl}/products/${slugify(product?.name || "product")}`,
     lastModified: product.updatedAt || product.createdAt || now,
     changeFrequency: "weekly",
     priority: 0.8,
