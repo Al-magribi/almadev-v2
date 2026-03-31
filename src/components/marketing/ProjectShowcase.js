@@ -11,6 +11,7 @@ import {
   ExternalLink, // Import ikon link
 } from "lucide-react";
 import Image from "next/image";
+import { normalizeImageSrc, shouldUnoptimizeImage } from "@/lib/image-utils";
 
 export default function ProjectShowcase({
   projects,
@@ -98,9 +99,10 @@ export default function ProjectShowcase({
                 {project.images && project.images.length > 0 ? (
                   <>
                     <Image
-                      src={project.images[0]}
+                      src={normalizeImageSrc(project.images[0])}
                       alt={project.title}
                       fill
+                      unoptimized={shouldUnoptimizeImage(project.images[0])}
                       sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
                       className='object-cover group-hover:scale-105 transition duration-700 opacity-90 group-hover:opacity-100'
                     />
@@ -173,9 +175,12 @@ export default function ProjectShowcase({
               {selectedProject.images && selectedProject.images.length > 0 ? (
                 <Image
                   key={currentImageIndex}
-                  src={selectedProject.images[currentImageIndex]}
+                  src={normalizeImageSrc(selectedProject.images[currentImageIndex])}
                   alt={`Slide ${currentImageIndex}`}
                   fill
+                  unoptimized={shouldUnoptimizeImage(
+                    selectedProject.images[currentImageIndex],
+                  )}
                   className='object-contain animate-in zoom-in-95 duration-300'
                   priority
                 />

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { ArrowUpRight, Star } from "lucide-react";
 import { formatRupiah } from "@/lib/client-utils";
 import { getProducts } from "@/actions/product-actions";
+import { normalizeImageSrc, shouldUnoptimizeImage } from "@/lib/image-utils";
 
 export default async function Products() {
   const products = await getProducts({ status: "published" });
@@ -41,6 +42,7 @@ export default async function Products() {
 
           <div className='grid grid-cols-1 gap-6 pt-10 md:grid-cols-2 lg:grid-cols-3'>
             {featured.map((product) => {
+              const imageSrc = normalizeImageSrc(product.image);
               const reviewCount = Number(product.displayReviews || 0);
               const reviewLabel =
                 reviewCount > 0
@@ -54,11 +56,12 @@ export default async function Products() {
                   className='group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-2xl'
                 >
                   <div className='relative aspect-[4/3] w-full overflow-hidden bg-slate-100'>
-                    {product.image ? (
+                    {imageSrc ? (
                       <Image
-                        src={product.image}
+                        src={imageSrc}
                         alt={product.name}
                         fill
+                        unoptimized={shouldUnoptimizeImage(imageSrc)}
                         className='object-cover transition duration-500 group-hover:scale-105'
                         sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
                       />

@@ -11,6 +11,7 @@ import {
 import { formatRupiah } from "@/lib/client-utils";
 import ProjectShowcase from "@/components/marketing/ProjectShowcase";
 import ProductCheckoutSummary from "@/components/marketing/ProductCheckoutSummary";
+import { normalizeImageSrc, shouldUnoptimizeImage } from "@/lib/image-utils";
 
 const DEFAULT_BENEFITS = [
   "Akses instan setelah pembayaran terverifikasi.",
@@ -110,6 +111,7 @@ export default function ProductLandingPage({
   );
   const soldCount =
     manualBuyers + Math.max(0, Number(product?.salesCount) || 0);
+  const heroImageSrc = normalizeImageSrc(product?.image);
 
   return (
     <div className='bg-white text-slate-900 selection:bg-blue-100 selection:text-blue-900'>
@@ -167,12 +169,13 @@ export default function ProductLandingPage({
             <div className='lg:col-span-6'>
               <div className='relative overflow-hidden rounded-[1rem] border border-white/10 bg-slate-900 shadow-2xl shadow-blue-950/40'>
                 <div className='relative aspect-[4/3] pt-12'>
-                  {product?.image ? (
+                  {heroImageSrc ? (
                     <Image
-                      src={product.image}
+                      src={heroImageSrc}
                       alt={product.name}
                       fill
                       priority
+                      unoptimized={shouldUnoptimizeImage(heroImageSrc)}
                       sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw'
                       className='object-cover'
                     />

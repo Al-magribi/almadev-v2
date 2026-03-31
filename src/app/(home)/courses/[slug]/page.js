@@ -42,6 +42,7 @@ const CurriculumList = dynamic(
 import { trackPageView } from "@/actions/dataview-actions";
 import { getCurrentUser } from "@/lib/auth-service";
 import { getSettings } from "@/actions/setting-actions";
+import { normalizeImageSrc, shouldUnoptimizeImage } from "@/lib/image-utils";
 
 // --- METADATA ---
 export async function generateMetadata({ params } = {}) {
@@ -136,7 +137,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
   const heroData = {
     headline: landing?.hero?.headline || course.name,
     subtitle: landing?.hero?.customSubtitle || course.description,
-    image: course.image || "/placeholder-course.jpg",
+    image: normalizeImageSrc(course.image) || "/placeholder-course.jpg",
   };
 
   const features = landing?.features?.items || [];
@@ -291,6 +292,7 @@ export default async function CourseLandingPage({ params, searchParams }) {
                     alt={heroData.headline}
                     fill
                     priority
+                    unoptimized={shouldUnoptimizeImage(heroData.image)}
                     sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
                     className='object-cover transform group-hover:scale-105 transition duration-700 ease-out'
                   />
