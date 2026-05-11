@@ -21,6 +21,7 @@ import { uploadImage } from "@/lib/server-utils";
 const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
 const serializeData = (data) => JSON.parse(JSON.stringify(data));
+const MIDTRANS_ITEM_NAME_MAX_LENGTH = 50;
 
 const NON_DELETABLE_TRANSACTION_STATUSES = new Set(["failed", "expired"]);
 const REFUND_WINDOW_DAYS = 7;
@@ -75,6 +76,41 @@ const getPhoneCandidates = (value = "") => {
 
   return Array.from(variants);
 };
+
+const normalizeMidtransAmount = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.max(0, Math.round(amount));
+};
+
+const sanitizeMidtransItemName = (value = "") => {
+  const normalized = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return "Pesanan";
+  return normalized.slice(0, MIDTRANS_ITEM_NAME_MAX_LENGTH);
+};
+
+const buildMidtransItemDetails = ({ id, price, quantity = 1, name }) => {
+  const normalizedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+
+  return [
+    {
+      id: String(id || "item").trim().slice(0, 50),
+      price: normalizeMidtransAmount(price),
+      quantity: normalizedQuantity,
+      name: sanitizeMidtransItemName(name),
+    },
+  ];
+};
+
+const sumMidtransGrossAmount = (items = []) =>
+  items.reduce((total, item) => {
+    const price = normalizeMidtransAmount(item?.price);
+    const quantity = Math.max(1, Math.floor(Number(item?.quantity) || 1));
+    return total + price * quantity;
+  }, 0);
 
 const findUserByCheckoutIdentity = async ({ email, phone }) => {
   const userByEmail = email ? await User.findOne({ email }) : null;
@@ -1199,6 +1235,8 @@ export async function createPayment(payload) {
       throw new Error("Harga tidak valid.");
     }
 
+    price = normalizeMidtransAmount(price);
+
     // ============ B) CEK EMAIL & PHONE ============
     const { userByEmail, userByPhone } = await findUserByCheckoutIdentity({
       email,
@@ -1314,6 +1352,14 @@ export async function createPayment(payload) {
       "base64",
     );
 
+    const itemDetails = buildMidtransItemDetails({
+      id: itemId,
+      price,
+      quantity: 1,
+      name: itemName,
+    });
+    const grossAmount = sumMidtransGrossAmount(itemDetails);
+
     const midtransResponse = await fetch(`${baseUrl}/snap/v1/transactions`, {
       method: "POST",
       headers: {
@@ -1324,21 +1370,14 @@ export async function createPayment(payload) {
       body: JSON.stringify({
         transaction_details: {
           order_id: orderId,
-          gross_amount: price,
+          gross_amount: grossAmount,
         },
         customer_details: {
           first_name: name,
           email,
           phone,
         },
-        item_details: [
-          {
-            id: String(itemId),
-            price: price,
-            quantity: 1,
-            name: itemName,
-          },
-        ],
+        item_details: itemDetails,
         callbacks: {
           finish: `${settings.domain}/status?order_id=${orderId}`,
         },

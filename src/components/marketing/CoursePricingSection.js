@@ -5,6 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { formatRupiah } from "@/lib/client-utils";
 import { getCoursePricingOffers } from "@/actions/course-actions";
 import PricingCardWrapper from "@/components/marketing/checkout/PricingCardWrapper";
+import CheckoutModal from "@/components/marketing/checkout/CheckoutModal";
 
 const formatCountdown = (ms = 0) => {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -29,6 +30,7 @@ export default function CoursePricingSection({
   const [offerStates, setOfferStates] = useState({});
   const [now, setNow] = useState(Date.now());
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const isRefreshingRef = useRef(false);
 
   const refreshOfferStates = async () => {
@@ -249,16 +251,7 @@ export default function CoursePricingSection({
 
                   <PricingCardWrapper
                     plan={plan}
-                    courseId={courseId}
-                    planIndex={idx}
-                    user={user}
-                    courseData={{
-                      name: courseName,
-                      price: plan.price,
-                      image: courseImage,
-                    }}
-                    utmData={utmData}
-                    metaPixelId={metaPixelId}
+                    onSelectPlan={setSelectedPlan}
                   />
                 </div>
               );
@@ -285,6 +278,25 @@ export default function CoursePricingSection({
           Beli Sekarang
         </a>
       </div>
+
+      {selectedPlan && (
+        <CheckoutModal
+          isOpen={Boolean(selectedPlan)}
+          onClose={() => setSelectedPlan(null)}
+          user={user}
+          courseId={courseId}
+          itemId={courseId}
+          itemType='Course'
+          planData={selectedPlan}
+          courseData={{
+            name: courseName,
+            price: selectedPlan.price,
+            image: courseImage,
+          }}
+          utmData={utmData}
+          metaPixelId={metaPixelId}
+        />
+      )}
     </>
   );
 }

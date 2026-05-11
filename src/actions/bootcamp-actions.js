@@ -13,6 +13,7 @@ import { sendPaymentEmail } from "@/lib/emailService";
 const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
 const serialize = (data) => JSON.parse(JSON.stringify(data));
+const MIDTRANS_ITEM_NAME_MAX_LENGTH = 50;
 
 const getMidtransAppBaseUrl = (settings) => {
   const rawBase = (settings?.midtransBaseUrl || "").trim();
@@ -34,6 +35,41 @@ const getMidtransAppBaseUrl = (settings) => {
     ? "https://app.midtrans.com"
     : "https://app.sandbox.midtrans.com";
 };
+
+const normalizeMidtransAmount = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return 0;
+  return Math.max(0, Math.round(amount));
+};
+
+const sanitizeMidtransItemName = (value = "") => {
+  const normalized = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return "Pesanan";
+  return normalized.slice(0, MIDTRANS_ITEM_NAME_MAX_LENGTH);
+};
+
+const buildMidtransItemDetails = ({ id, price, quantity = 1, name }) => {
+  const normalizedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
+
+  return [
+    {
+      id: String(id || "item").trim().slice(0, 50),
+      price: normalizeMidtransAmount(price),
+      quantity: normalizedQuantity,
+      name: sanitizeMidtransItemName(name),
+    },
+  ];
+};
+
+const sumMidtransGrossAmount = (items = []) =>
+  items.reduce((total, item) => {
+    const price = normalizeMidtransAmount(item?.price);
+    const quantity = Math.max(1, Math.floor(Number(item?.quantity) || 1));
+    return total + price * quantity;
+  }, 0);
 
 export async function getBootcampParticipants() {
   const user = await getCurrentUser();
@@ -248,7 +284,9 @@ export async function createBootcampPayment({
     const classFee = 3000000;
     const feeType =
       bootcampFeeType === "class" ? "class" : "registration";
-    const feeAmount = feeType === "class" ? classFee : registrationFee;
+    const feeAmount = normalizeMidtransAmount(
+      feeType === "class" ? classFee : registrationFee,
+    );
     const feeLabel =
       feeType === "class"
         ? "Bootcamp - Biaya Kelas"
@@ -295,6 +333,14 @@ export async function createBootcampPayment({
       orderId,
     )}`;
 
+    const itemDetails = buildMidtransItemDetails({
+      id: participant._id,
+      price: feeAmount,
+      quantity: 1,
+      name: feeLabel,
+    });
+    const grossAmount = sumMidtransGrossAmount(itemDetails);
+
     const midtransResponse = await fetch(`${baseUrl}/snap/v1/transactions`, {
       method: "POST",
       headers: {
@@ -305,21 +351,14 @@ export async function createBootcampPayment({
       body: JSON.stringify({
         transaction_details: {
           order_id: orderId,
-          gross_amount: feeAmount,
+          gross_amount: grossAmount,
         },
         customer_details: {
           first_name: safeName,
           email: safeEmail,
           phone: safePhone,
         },
-        item_details: [
-          {
-            id: String(participant._id),
-            price: feeAmount,
-            quantity: 1,
-            name: feeLabel,
-          },
-        ],
+        item_details: itemDetails,
         callbacks: {
           finish: finishUrl,
         },
