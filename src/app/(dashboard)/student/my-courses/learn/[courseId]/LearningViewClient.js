@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookOpen,
@@ -67,10 +67,25 @@ export default function LearningViewClient({
   const playerContainerRef = useRef(null);
   const watchIntervalRef = useRef(null);
   const lastSentRef = useRef(0);
+  const activeLessonRef = useRef(activeLesson);
+  const completedLessonIdsRef = useRef(completedLessonIds);
+  const courseIdRef = useRef(course?._id);
 
   const curriculum = course?.curriculum || [];
   const reviews = course?.reviews || [];
   const qnas = qnaList || [];
+  const flatLessons = useMemo(
+    () =>
+      curriculum.flatMap((section) =>
+        (section.lessons || []).map((lesson) => ({
+          _id: lesson._id,
+          title: lesson.title,
+          video: lesson.video,
+        })),
+      ),
+    [curriculum],
+  );
+  const flatLessonsRef = useRef(flatLessons);
   const summary = useMemo(() => {
     const sectionCount = curriculum.length;
     const lessonCount = curriculum.reduce(
@@ -96,6 +111,74 @@ export default function LearningViewClient({
 
   const embedUrl = getYouTubeEmbedUrl(activeLesson?.video || course?.video);
 
+  const markLessonCompleted = useCallback((lesson, duration = 0) => {
+    if (!lesson?._id) return;
+
+    const lessonId = String(lesson._id);
+    const safeDuration = Math.floor(duration || 0);
+
+    setLessonProgressMap((prev) => {
+      const next = new Map(prev);
+      next.set(lessonId, {
+        watchDuration: safeDuration,
+        totalDuration: safeDuration,
+        isCompleted: true,
+      });
+      return next;
+    });
+
+    if (completedLessonIdsRef.current.has(lessonId)) return;
+
+    completedLessonIdsRef.current = new Set(completedLessonIdsRef.current).add(
+      lessonId,
+    );
+    setCompletedLessonIds(new Set(completedLessonIdsRef.current));
+    setLocalProgress((prev) => {
+      const total = prev.totalLessons || 0;
+      const nextCompleted = Math.min(
+        total || Infinity,
+        prev.completedLessons + 1,
+      );
+      const percent =
+        total > 0
+          ? Math.min(100, Math.round((nextCompleted / total) * 100))
+          : 0;
+      return { ...prev, completedLessons: nextCompleted, percent };
+    });
+  }, []);
+
+  const playNextLesson = useCallback((lesson) => {
+    if (!lesson?._id) return;
+
+    const lessons = flatLessonsRef.current;
+    const currentIndex = lessons.findIndex(
+      (item) => String(item._id) === String(lesson._id),
+    );
+    const nextLesson = lessons
+      .slice(currentIndex + 1)
+      .find((item) => getYouTubeId(item.video));
+
+    if (nextLesson) {
+      setActiveLesson(nextLesson);
+    }
+  }, []);
+
+  useEffect(() => {
+    activeLessonRef.current = activeLesson;
+  }, [activeLesson]);
+
+  useEffect(() => {
+    completedLessonIdsRef.current = completedLessonIds;
+  }, [completedLessonIds]);
+
+  useEffect(() => {
+    courseIdRef.current = course?._id;
+  }, [course?._id]);
+
+  useEffect(() => {
+    flatLessonsRef.current = flatLessons;
+  }, [flatLessons]);
+
   useEffect(() => {
     const items = progressSummary?.lessonProgress || [];
     setLessonProgressMap(
@@ -110,6 +193,9 @@ export default function LearningViewClient({
         ]),
       ),
     );
+    const nextCompletedIds = new Set(progressSummary?.completedLessonIds || []);
+    completedLessonIdsRef.current = nextCompletedIds;
+    setCompletedLessonIds(nextCompletedIds);
   }, [progressSummary?.lessonProgress]);
 
   useEffect(() => {
@@ -155,7 +241,8 @@ export default function LearningViewClient({
     const startWatchInterval = () => {
       stopWatchInterval();
       watchIntervalRef.current = setInterval(async () => {
-        if (!playerRef.current || !activeLesson?._id) return;
+        const lesson = activeLessonRef.current;
+        if (!playerRef.current || !lesson?._id) return;
         const currentTime = playerRef.current.getCurrentTime?.() || 0;
         const duration = playerRef.current.getDuration?.() || 0;
         const now = Date.now();
@@ -166,38 +253,43 @@ export default function LearningViewClient({
         // Update local progress bar in real-time
         setLessonProgressMap((prev) => {
           const next = new Map(prev);
-          next.set(String(activeLesson._id), {
+          next.set(String(lesson._id), {
             watchDuration: Math.floor(currentTime),
             totalDuration: Math.floor(duration),
             isCompleted:
-              completed || prev.get(String(activeLesson._id))?.isCompleted,
+              completed || prev.get(String(lesson._id))?.isCompleted,
           });
           return next;
         });
 
         await updateLessonProgress({
-          courseId: course?._id,
-          lessonId: activeLesson._id,
+          courseId: courseIdRef.current,
+          lessonId: lesson._id,
           watchDuration: Math.floor(currentTime),
           totalDuration: Math.floor(duration),
           isCompleted: completed,
         });
 
-        if (completed && !completedLessonIds.has(String(activeLesson._id))) {
-          setCompletedLessonIds((prev) => {
-            const next = new Set(prev);
-            next.add(String(activeLesson._id));
-            return next;
-          });
-          setLocalProgress((prev) => {
-            const total = prev.totalLessons || 0;
-            const nextCompleted = prev.completedLessons + 1;
-            const percent =
-              total > 0
-                ? Math.min(100, Math.round((nextCompleted / total) * 100))
-                : 0;
-            return { ...prev, completedLessons: nextCompleted, percent };
-          });
+        if (completed) {
+          const lessonId = String(lesson._id);
+          if (!completedLessonIdsRef.current.has(lessonId)) {
+            completedLessonIdsRef.current = new Set(
+              completedLessonIdsRef.current,
+            ).add(lessonId);
+            setCompletedLessonIds(new Set(completedLessonIdsRef.current));
+            setLocalProgress((prev) => {
+              const total = prev.totalLessons || 0;
+              const nextCompleted = Math.min(
+                total || Infinity,
+                prev.completedLessons + 1,
+              );
+              const percent =
+                total > 0
+                  ? Math.min(100, Math.round((nextCompleted / total) * 100))
+                  : 0;
+              return { ...prev, completedLessons: nextCompleted, percent };
+            });
+          }
         }
       }, 2000);
     };
@@ -210,7 +302,8 @@ export default function LearningViewClient({
           playerVars: { rel: 0, modestbranding: 1 },
           events: {
             onStateChange: (event) => {
-              if (!activeLesson?._id) return;
+              const lesson = activeLessonRef.current;
+              if (!lesson?._id) return;
               if (event.data === YT.PlayerState.PLAYING) {
                 startWatchInterval();
               } else if (
@@ -223,44 +316,14 @@ export default function LearningViewClient({
               if (event.data === YT.PlayerState.ENDED) {
                 const duration = playerRef.current.getDuration?.() || 0;
                 updateLessonProgress({
-                  courseId: course?._id,
-                  lessonId: activeLesson._id,
+                  courseId: courseIdRef.current,
+                  lessonId: lesson._id,
                   watchDuration: Math.floor(duration),
                   totalDuration: Math.floor(duration),
                   isCompleted: true,
                 });
-                setLessonProgressMap((prev) => {
-                  const next = new Map(prev);
-                  next.set(String(activeLesson._id), {
-                    watchDuration: Math.floor(duration),
-                    totalDuration: Math.floor(duration),
-                    isCompleted: true,
-                  });
-                  return next;
-                });
-                if (!completedLessonIds.has(String(activeLesson._id))) {
-                  setCompletedLessonIds((prev) => {
-                    const next = new Set(prev);
-                    next.add(String(activeLesson._id));
-                    return next;
-                  });
-                  setLocalProgress((prev) => {
-                    const total = prev.totalLessons || 0;
-                    const nextCompleted = prev.completedLessons + 1;
-                    const percent =
-                      total > 0
-                        ? Math.min(
-                            100,
-                            Math.round((nextCompleted / total) * 100),
-                          )
-                        : 0;
-                    return {
-                      ...prev,
-                      completedLessons: nextCompleted,
-                      percent,
-                    };
-                  });
-                }
+                markLessonCompleted(lesson, duration);
+                playNextLesson(lesson);
               }
             },
           },
@@ -274,7 +337,7 @@ export default function LearningViewClient({
       cancelled = true;
       stopWatchInterval();
     };
-  }, [activeVideoId, activeLesson, course?._id, completedLessonIds]);
+  }, [activeVideoId, markLessonCompleted, playNextLesson]);
 
   useEffect(() => {
     return () => {
